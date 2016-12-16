@@ -1,0 +1,27 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Grep for EXPR in list of resources.
+With --, list latest resources.
+Without arguments, list latest pods.
+Usage: "$(basename "$1")" TYPE [...] [EXPR|--] [-?|-h|--help]
+Usage: "$(basename "$1")" [EXPR|--] [-?|-h|--help]
+HELPTEXT
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+case $# in
+    0) set -- pods --;;
+    1) set -- pods "$1";;
+esac
+
+lastArg=${!#}
+if [ "$lastArg" = '--' ]; then
+    kubectl get "${@:1:$(($#-1))}" --sort-by='{.metadata.creationTimestamp}' | { IFS=$'\n' read header; printf '%s\n' "$header"; tac | sed -e '/[0-9]d$/{ s/.*//; q }'; }
+else
+    exec kubectl get "${@:1:$(($#-1))}" | grep "$lastArg"
+fi

@@ -1,0 +1,6 @@
+#!/bin/bash
+
+pod=${1:?}
+shift
+
+exec kubectl exec -it "$pod" bash "$@"
