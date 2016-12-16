@@ -1,0 +1,22 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Delete, edit, and then re-create passed resource.
+Usage: "$(basename "$1")" [...] FILENAME [-?|-h|--help]
+HELPTEXT
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+lastArg=${!#}
+if [ $# -eq 0 -o ! -e "$lastArg" ]; then
+    echo >&2 "ERROR: Must pass FILENAME"
+    exit 2
+fi
+
+kubectl delete "${@:1:$(($#-1))}" -f "$lastArg" &&
+    "${EDITOR:-vi}" "$lastArg" &&
+    kubectl create "${@:1:$(($#-1))}" -f "$lastArg"
