@@ -10,18 +10,29 @@ Usage: "$(basename "$1")" TYPE [...] [EXPR|--] [-?|-h|--help]
 Usage: "$(basename "$1")" [EXPR|--] [-?|-h|--help]
 HELPTEXT
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
+
+typeset -a kcArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--all-namespaces)	kcArgs+=("$1"); shift;;
+	--namespace|-n|--cluster|--context)	kcArgs+=("$1" "$2"); shift; shift;;
+	--)		break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
 
 case $# in
     0) set -- pods --;;
     1) set -- pods "$1";;
+    2) set -- pods "$2";;
 esac
-
 lastArg=${!#}
+
 if [ "$lastArg" = '--' ]; then
-    kubectl get "${@:1:$(($#-1))}" --sort-by='{.metadata.creationTimestamp}' | { IFS=$'\n' read header; printf '%s\n' "$header"; tac | sed -e '/[0-9]d$/{ s/.*//; q }'; }
+    kubectl get "${@:1:$(($#-1))}" "${kcArgs[@]}" --sort-by='{.metadata.creationTimestamp}' | { IFS=$'\n' read header; printf '%s\n' "$header"; tac | sed -e '/[0-9]d$/{ s/.*//; q }'; }
 else
-    exec kubectl get "${@:1:$(($#-1))}" | grep "$lastArg"
+    exec kubectl get "${@:1:$(($#-1))}" "${kcArgs[@]}" | grep "$lastArg"
 fi
