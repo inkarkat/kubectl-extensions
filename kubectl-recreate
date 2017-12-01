@@ -4,7 +4,7 @@ printUsage()
 {
     cat <<HELPTEXT
 Delete and re-create passed resource.
-Usage: "$(basename "$1")" [...] FILENAME [-?|-h|--help]
+Usage: "$(basename "$1")" [...] [--] FILENAME [-?|-h|--help]
 HELPTEXT
 }
 case "$1" in
@@ -17,4 +17,7 @@ if [ $# -eq 0 -o ! -e "$lastArg" ]; then
     exit 2
 fi
 
-kubectl delete "${@:1:$(($#-1))}" -f "$lastArg" && kubectl create "${@:1:$(($#-1))}" -f "$lastArg"
+let i=$#-1
+[ "${@[i]}" = '--' ] && let i-=1
+
+kubectl delete "${@:1:$i}" -f "$lastArg" && kubectl create "${@:1:$i}" -f "$lastArg"
