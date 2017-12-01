@@ -32,7 +32,7 @@ esac
 lastArg=${!#}
 
 if [ "$lastArg" = '--' ]; then
-    kubectl get "${@:1:$(($#-1))}" "${kcArgs[@]}" --sort-by='{.metadata.creationTimestamp}' | { IFS=$'\n' read header; printf '%s\n' "$header"; tac | sed -e '/[0-9]d$/{ s/.*//; q }'; }
+    kubectl get "${@:1:$(($#-1))}" "${kcArgs[@]}" --sort-by='{.metadata.creationTimestamp}' | { IFS=$'\n' read header; printf '%s\n' "$header"; tac | sed -e '/[0-9]d$/{ x; /^$/{ 1!{ s/.*//; q }; g; b }; G; /\([0-9]\+d\)\n.*\1$/!{ s/.*//; q } }'; }
 else
     exec kubectl get "${@:1:$(($#-1))}" "${kcArgs[@]}" | grep "$lastArg"
 fi
