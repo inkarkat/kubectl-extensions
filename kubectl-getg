@@ -38,7 +38,7 @@ if [ "$lastArg" = '--' ]; then
 	    # not more. If all resources are at least one day old, show all
 	    # those with the same smallest number of days, but not the even
 	    # older ones.
-	    sed -e '/[0-9]d$/{ x; /^$/{ 1!{ s/.*//; q }; g; b }; G; /\([0-9]\+d\)\n.*\1$/!{ s/.*//; q } }'; \
+	    sed -e '/[0-9]d$/{ x; /^$/{ 1!{ s/.*//; q }; g; b }; G; /\([0-9]\+d\)\n.*\1$/!{ s/.*//; q }; s/^[^\n]*\n// }'; \
 	}
 else
     exec kubectl get "${@:1:$(($#-1))}" "${kcArgs[@]}" | grep "$lastArg"
