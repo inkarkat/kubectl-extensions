@@ -1,3 +1,0 @@
-#!/bin/bash
-
-kubectl describe pod "$@" | sed -ne '/^Node:/{ s#^Node:[ \t]*\(.*\)$#\1#; s#/.*$##; p }'

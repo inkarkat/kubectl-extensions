@@ -1,0 +1,25 @@
+#!/bin/bash
+
+set -o pipefail
+
+IFS=$'\n'
+typeset -a podNames; podNames=($(kubectl-podnames "$@")) || exit $?
+[ ${#podNames[@]} -gt 0 ] || exit 1
+
+# We need to pass all kubectl arguments also to the describe subcommand (as it
+# may contain --namespace=... or similar), but omit any "-- PATTERN" filter for
+# kubectl-podnames.
+if [ $# -ge 2 -a "${@:(-2):1}" = -- ]; then
+    set -- "${@:1:$(($#-2))}"
+fi
+
+status=0
+for podName in "${podNames[@]}"
+do
+    literalPodName=$podName
+    literalPodName=${literalPodName//\\/\\\\}
+    literalPodName=${literalPodName//&/\\&}
+
+    kubectl describe pod "$@" "$podName" | sed -ne '/^Node:/{ s#^Node:[ \t]*\(.*\)$#\1#; s#/.*$##; '"s#^#${literalPodName//#/\\#}\\t#; p }" || status=$?
+done
+exit $status
