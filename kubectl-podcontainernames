@@ -1,3 +1,16 @@
 #!/bin/bash
 
-exec kubectl get "$@" -o go-template --template '{{range .items}}{{.metadata.name}}{{range .spec.containers}} -c {{.name}}{{end}}{{"\n"}}{{end}}' pods
+set -o pipefail
+
+typeset -a filter=()
+if [ $# -ge 2 -a "${@:(-2):1}" = -- ]; then
+    typeset -a filter=(grep -e "^[^ ]*${!#}")
+    set -- "${@:1:$(($#-2))}"
+fi
+
+getAllPodContainerNames()
+{
+    kubectl get "$@" -o go-template --template '{{range .items}}{{.metadata.name}}{{range .spec.containers}} -c {{.name}}{{end}}{{"\n"}}{{end}}' pods
+}
+
+eval 'getAllPodContainerNames "$@"' "${filter:+|}" '"${filter[@]}"'
