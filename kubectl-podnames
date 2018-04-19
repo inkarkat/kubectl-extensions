@@ -3,8 +3,8 @@
 set -o pipefail
 
 typeset -a filter=()
-if [ $# -ge 2 -a "${@:(-2):1}" = -- ]; then
-    typeset -a filter=(grep -e "^[^ ]*${!#}")
+if [ $# -ge 2 ] && [ "${@:(-2):1}" = -- ]; then
+    filter=(grep -e "^[^ ]*${!#}")
     set -- "${@:1:$(($#-2))}"
 fi
 
