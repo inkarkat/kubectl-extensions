@@ -2,24 +2,15 @@
 
 set -o pipefail
 
-IFS=$'\n'
-typeset -a podNames; podNames=($(kubectl-podnames "$@")) || exit $?
-[ ${#podNames[@]} -gt 0 ] || exit 1
-
-# We need to pass all kubectl arguments also to the describe subcommand (as it
-# may contain --namespace=... or similar), but omit any "-- PATTERN" filter for
-# kubectl-podnames.
+typeset -a filter=()
 if [ $# -ge 2 ] && [ "${@:(-2):1}" = -- ]; then
+    filter=(grep -e "^[^ ]*${!#}")
     set -- "${@:1:$(($#-2))}"
 fi
 
-status=0
-for podName in "${podNames[@]}"
-do
-    literalPodName=$podName
-    literalPodName=${literalPodName//\\/\\\\}
-    literalPodName=${literalPodName//&/\\&}
+getAllPodHosts()
+{
+    kubectl get "$@" -o go-template --template '{{range .items}}{{.metadata.name}}{{"\t"}}{{.spec.nodeName}}{{"\n"}}{{end}}' pods
+}
 
-    kubectl describe pod "$@" "$podName" | sed -ne '/^Node:/{ s#^Node:[ \t]*\(.*\)$#\1#; s#/.*$##; '"s#^#${literalPodName//#/\\#}\\t#; p }" || status=$?
-done
-exit $status
+eval 'getAllPodHosts "$@"' "${filter:+|}" '"${filter[@]}"'
