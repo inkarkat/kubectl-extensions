@@ -13,4 +13,18 @@ getAllPodHosts()
     kubectl get "$@" -o go-template --template '{{range .items}}{{.metadata.name}}{{"\t"}}{{.spec.nodeName}}{{"\n"}}{{end}}' pods
 }
 
-eval 'getAllPodHosts "$@"' "${filter:+|}" '"${filter[@]}"'
+eval 'getAllPodHosts "$@"' "${filter:+|}" '"${filter[@]}"' | awk -F '\t' '
+{
+    c[$2] += 1
+    if (e[$2])
+	e[$2] = e[$2] "\n\t" $1
+    else
+	e[$2] = "\t" $1
+}
+END {
+    for (i in e) {
+	print i " (" c[i] "):"
+	print e[i]
+    }
+}
+'
