@@ -1,5 +1,3 @@
 #!/bin/bash
 
-pod=; [ $# -gt 0 ] && pod=${!#}
-
-exec kubectl exec "${@:1:$(($#-1))}" -it "$pod" bash
+exec kubectl exec -it "$@" bash
