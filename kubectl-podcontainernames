@@ -8,9 +8,16 @@ if [ $# -ge 2 ] && [ "${@:(-2):1}" = -- ]; then
     set -- "${@:1:$(($#-2))}"
 fi
 
+: ${KUBECTL_IGNORE_CONTAINERNAMES=kubernetes-vault-renew}
+typeset -a containerFilter=()
+if [ "$KUBECTL_IGNORE_CONTAINERNAMES" ]; then
+    ignoredContainerBranches="${KUBECTL_IGNORE_CONTAINERNAMES// /\\|}"
+    containerFilter=(sed -e "s# -c \\(${ignoredContainerBranches}\\)\\( \\|\$\\)#\\2#")
+fi
+
 getAllPodContainerNames()
 {
     kubectl get "$@" -o go-template --template '{{range .items}}{{.metadata.name}}{{range .spec.containers}} -c {{.name}}{{end}}{{"\n"}}{{end}}' pods
 }
 
-eval 'getAllPodContainerNames "$@"' "${filter:+|}" '"${filter[@]}"'
+eval 'getAllPodContainerNames "$@"' "${filter:+|}" '"${filter[@]}"' "${containerFilter:+|}" '"${containerFilter[@]}"'
