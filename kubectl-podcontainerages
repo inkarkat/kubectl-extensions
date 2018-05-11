@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -o pipefail
+
+typeset -a filter=()
+if [ $# -ge 2 ] && [ "${@:(-2):1}" = -- ]; then
+    filter=(grep -e "^[^ ]*${!#}")
+    set -- "${@:1:$(($#-2))}"
+fi
+
+: ${KUBECTL_IGNORE_CONTAINERNAMES=kubernetes-vault-renew}
+typeset -a containerFilter=()
+if [ "$KUBECTL_IGNORE_CONTAINERNAMES" ]; then
+    ignoredContainerBranches="${KUBECTL_IGNORE_CONTAINERNAMES// /\\|}"
+    containerFilter=(sed -e "s# \\(${ignoredContainerBranches}\\): [^ ]\+\\( \\|\$\\)#\\2#")
+fi
+
+getAllPodContainerStartTimes()
+{
+    kubectl get "$@" -o go-template --template '{{range .items}}{{.metadata.name}}{{range .status.containerStatuses}} {{.name}}: {{if .state.running}}{{.state.running.startedAt}}{{else}}{{ range $key, $value := .state }}{{$key}}{{end}}{{end}}{{end}}{{"\n"}}{{end}}' pod
+}
+
+eval 'getAllPodContainerStartTimes "$@"' "${filter:+|}" '"${filter[@]}"' "${containerFilter:+|}" '"${containerFilter[@]}"'
