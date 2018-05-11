@@ -54,10 +54,23 @@ if which reldate > /dev/null 2>&1; then
     {
 	reldate <<<"$1"
     }
+    showDuration()
+    {
+	printf 'since '
+	reldate <<<"$1"
+    }
 else
     showDate()
     {
 	date --set "$1"
+    }
+    showDuration()
+    {
+	local now=$(date +%s)
+	local lastEpoch=$(date --date "$1" +%s)
+	local stateDurationInSeconds=$((now - lastEpoch))
+	stateDurationInSecondsPlural=s; [ $stateDurationInSeconds -eq 1 ] && stateDurationInSecondsPlural=
+	printf 'for %d second%s\n' "$stateDurationInSeconds" "$stateDurationInSecondsPlural"
     }
 fi
 
@@ -79,11 +92,19 @@ parse()
     fi
 
     local IFS=' '
-    read -r pod containerArg container startTime remainder <<< "${results[0]}"
+    read -r pod containerArg container startTimeOrState remainder <<< "${results[0]}"
 
     local startEpoch
-    if ! startEpoch=$(date --date "$startTime" +%s 2>/dev/null); then
-	printf '%s -c %s is currently in status %s.\n' "$pod" "$container" "$startTime"
+    if ! startEpoch=$(date --date "$startTimeOrState" +%s 2>/dev/null); then
+	read -r lastState lastDate < "$lastStateFilespec"
+
+	if [ "$lastState" = "$startTimeOrState" -a "$lastDate" ]; then
+	    printf '%s -c %s has been in status %s %s.\n' "$pod" "$container" "$startTimeOrState" "$(showDuration "$lastDate")"
+	else
+	    printf '%s %s\n' "$startTimeOrState" "$(date --utc +%FT%TZ)" > "$lastStateFilespec"
+	    printf '%s -c %s is currently in status %s.\n' "$pod" "$container" "$startTimeOrState"
+	fi
+
 	return
     fi
 
@@ -91,7 +112,7 @@ parse()
     local uptimeInSeconds=$((now - startEpoch))
 
     if [ $uptimeInSeconds -gt $MAX_UPTIME_IN_SECONDS_FOR_NEWNESS ]; then
-	printf '%s -c %s is not yet down (started %s).\n' "$pod" "$container" "$(showDate "$startTime")"
+	printf '%s -c %s is not yet down (started %s).\n' "$pod" "$container" "$(showDate "$startTimeOrState")"
 	return
     fi
 
@@ -112,7 +133,14 @@ parse()
     exit 99
 }
 
+
+
 exec 6<&0   # Save stdin.
+
+lastStateFilespec=$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM")
+> "$lastStateFilespec"
+[ "$DEBUG" ] || trap 'rm "$lastStateFilespec" 2>/dev/null' EXIT
+
 while :
 do
     eval 'getPodContainerStartTimes "${kubectlNamespaceArgs[@]}"' "${filter:+|}" '"${filter[@]}"' "${containerFilter:+|}" '"${containerFilter[@]}"' | \
