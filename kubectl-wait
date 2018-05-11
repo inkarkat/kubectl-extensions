@@ -1,0 +1,103 @@
+#!/bin/bash
+
+MAX_UPTIME_IN_SECONDS_FOR_NEWNESS=60
+
+printUsage()
+{
+    cat <<HELPTEXT
+Wait until CONTAINER in POD is running again [and execute the kubectl SUBCOMMAND
+with the POD -c CONTAINER arguments then].
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n|--namespace NAMESPACE] POD [-c CONTAINER] [SUBCOMMAND] [-?|-h|--help]'
+}
+
+# Extract the --namespace argument; it may appear anywhere, so we need to go through all command-line arguments and filter them out.
+typeset -a kubectlNamespaceArgs=()
+typeset -a allargs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--namespace|-n) kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
+	*)		allargs+=("$1"); shift;;
+    esac
+done
+set -- "${allargs[@]}"
+
+case "$1" in
+    --help|-h|-\?)  shift; printUsage "$0"; exit 0;;
+esac
+[ $# -eq 0 ] && { printUsage "$0"; exit 2; }
+
+typeset -a filter=(grep -e "^[^ ]*$1"); shift
+
+case "$1" in
+    --namespace|-n) kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
+esac
+
+container=
+if [ "$1" = -c ]; then
+    container=$2
+    shift; shift
+fi
+
+: ${KUBECTL_IGNORE_CONTAINERNAMES=kubernetes-vault-renew}
+typeset -a containerFilter=()
+if [ "$container" ]; then
+    containerFilter=(sed -e "s#\\( -c [^ ]\\+ [^ ]\\+\\)*\\( -c ${container}\\) [^ ]\\+\\( -c [^ ]\\+ [^ ]\\+\\)*\$#\\2#")
+elif [ "$KUBECTL_IGNORE_CONTAINERNAMES" ]; then
+    ignoredContainerBranches="${KUBECTL_IGNORE_CONTAINERNAMES// /\\|}"
+    containerFilter=(sed -e "s# -c \\(${ignoredContainerBranches}\\) [^ ]\\+\\( \\|\$\\)#\\2#")
+fi
+
+getPodContainerStartTimes()
+{
+    kubectl get "$@" -o go-template --template '{{range .items}}{{.metadata.name}}{{range .status.containerStatuses}} -c {{.name}} {{if .state.running}}{{.state.running.startedAt}}{{else}}{{ range $key, $value := .state }}{{$key}}{{end}}{{end}}{{end}}{{"\n"}}{{end}}' pod
+}
+parse()
+{
+    mapfile results
+
+    if [ ${#results[@]} -eq 0 ]; then
+	echo >&2 "ERROR: No results"
+	exit 1
+    elif [ ${#results[@]} -gt 1 ]; then
+	echo >&2 "ERROR: Multiple PODs match:"
+	printf >&2 '%s\n' "${results[@]%% *}"
+	exit 1
+    fi
+
+    local IFS=' '
+    read -r pod containerArg container startTime remainder <<< "${results[0]}"
+
+    local startEpoch
+    if ! startEpoch=$(date --date "$startTime" +%s 2>/dev/null); then
+	printf '%s -c %s is currently in status %s.\n' "$pod" "$container" "$startTime"
+	return
+    fi
+
+    local now=$(date +%s)
+    local uptimeInSeconds=$((now - startEpoch))
+
+    if [ $uptimeInSeconds -gt $MAX_UPTIME_IN_SECONDS_FOR_NEWNESS ]; then
+	printf '%s -c %s is not yet down (started %s).\n' "$pod" "$container" "$startTime"
+	return
+    fi
+
+    printf '%s -c %s started %d seconds ago (%s).\n' "$pod" "$container" "$uptimeInSeconds" "$startTime"
+    if [ $# -gt 0 ]; then
+	kubectl "$@" "${kubectlNamespaceArgs[@]}" "$pod" "$containerArg" "$container"
+    fi
+    exit 99
+}
+
+while :
+do
+    eval 'getPodContainerStartTimes "${kubectlNamespaceArgs[@]}"' "${filter:+|}" '"${filter[@]}"' "${containerFilter:+|}" '"${containerFilter[@]}"' | \
+	parse "$@"
+    status=$?
+    case $status in
+	0)  sleep 3s;;
+	99) exit 0;;
+	*)  exit $status;;
+    esac
+done
