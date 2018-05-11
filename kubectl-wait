@@ -86,7 +86,7 @@ parse()
     printf '%s -c %s started %d seconds ago (%s).\n' "$pod" "$container" "$uptimeInSeconds" "$startTime"
     if [ $# -gt 0 ]; then
 	# Some kubectl commands (e.g. exec -it) need to read from stdin; restore it.
-	exec 0</dev/tty
+	exec 0<&6
 
 	local kubectlAlias="kubectl-$1"
 	if type -t "$kubectlAlias" >/dev/null; then
@@ -99,6 +99,7 @@ parse()
     exit 99
 }
 
+exec 6<&0   # Save stdin.
 while :
 do
     eval 'getPodContainerStartTimes "${kubectlNamespaceArgs[@]}"' "${filter:+|}" '"${filter[@]}"' "${containerFilter:+|}" '"${containerFilter[@]}"' | \
