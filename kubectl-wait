@@ -83,7 +83,8 @@ parse()
 	return
     fi
 
-    printf '%s -c %s started %d seconds ago (%s).\n' "$pod" "$container" "$uptimeInSeconds" "$startTime"
+    uptimePlural=s; [ $uptimeInSeconds -eq 1 ] && uptimePlural=
+    printf '%s -c %s started %d second%s ago.\n' "$pod" "$container" "$uptimeInSeconds" "$uptimePlural"
     if [ $# -gt 0 ]; then
 	# Some kubectl commands (e.g. exec -it) need to read from stdin; restore it.
 	exec 0<&6
