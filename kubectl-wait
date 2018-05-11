@@ -85,7 +85,13 @@ parse()
 
     printf '%s -c %s started %d seconds ago (%s).\n' "$pod" "$container" "$uptimeInSeconds" "$startTime"
     if [ $# -gt 0 ]; then
-	kubectl "$@" "${kubectlNamespaceArgs[@]}" "$pod" "$containerArg" "$container"
+	local kubectlAlias="kubectl-$1"
+	if type -t "$kubectlAlias" >/dev/null; then
+	    shift
+	    eval $kubectlAlias '"$@" "${kubectlNamespaceArgs[@]}" "$pod" "$containerArg" "$container"'
+	else
+	    command kubectl "$@" "${kubectlNamespaceArgs[@]}" "$pod" "$containerArg" "$container"
+	fi
     fi
     exit 99
 }
