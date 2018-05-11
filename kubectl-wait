@@ -49,6 +49,18 @@ elif [ "$KUBECTL_IGNORE_CONTAINERNAMES" ]; then
     containerFilter=(sed -e "s# -c \\(${ignoredContainerBranches}\\) [^ ]\\+\\( \\|\$\\)#\\2#")
 fi
 
+if which reldate > /dev/null 2>&1; then
+    showDate()
+    {
+	reldate <<<"$1"
+    }
+else
+    showDate()
+    {
+	date --set "$1"
+    }
+fi
+
 getPodContainerStartTimes()
 {
     kubectl get "$@" -o go-template --template '{{range .items}}{{.metadata.name}}{{range .status.containerStatuses}} -c {{.name}} {{if .state.running}}{{.state.running.startedAt}}{{else}}{{ range $key, $value := .state }}{{$key}}{{end}}{{end}}{{end}}{{"\n"}}{{end}}' pod
@@ -79,7 +91,7 @@ parse()
     local uptimeInSeconds=$((now - startEpoch))
 
     if [ $uptimeInSeconds -gt $MAX_UPTIME_IN_SECONDS_FOR_NEWNESS ]; then
-	printf '%s -c %s is not yet down (started %s).\n' "$pod" "$container" "$startTime"
+	printf '%s -c %s is not yet down (started %s).\n' "$pod" "$container" "$(showDate "$startTime")"
 	return
     fi
 
