@@ -93,6 +93,7 @@ parse()
 
     local IFS=' '
     read -r pod containerArg container startTimeOrState remainder <<< "${results[0]}"
+    : "${pod:?}" "${containerArg:?}" "${container:?}" "${startTimeOrState:?}"
 
     local startEpoch
     if ! startEpoch=$(date --date "$startTimeOrState" +%s 2>/dev/null); then
