@@ -43,7 +43,7 @@ fi
 : ${KUBECTL_IGNORE_CONTAINERNAMES=kubernetes-vault-renew}
 typeset -a containerFilter=()
 if [ "$container" ]; then
-    containerFilter=(sed -e "s#\\( -c [^ ]\\+ [^ ]\\+\\)*\\( -c ${container}\\) [^ ]\\+\\( -c [^ ]\\+ [^ ]\\+\\)*\$#\\2#")
+    containerFilter=(sed -e "s#\\( -c [^ ]\\+ [^ ]\\+\\)*\\( -c ${container} [^ ]\\+\\)\\( -c [^ ]\\+ [^ ]\\+\\)*\$#\\2#")
 elif [ "$KUBECTL_IGNORE_CONTAINERNAMES" ]; then
     ignoredContainerBranches="${KUBECTL_IGNORE_CONTAINERNAMES// /\\|}"
     containerFilter=(sed -e "s# -c \\(${ignoredContainerBranches}\\) [^ ]\\+\\( \\|\$\\)#\\2#")
