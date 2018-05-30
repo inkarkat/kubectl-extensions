@@ -30,10 +30,6 @@ esac
 
 typeset -a filter=(grep -e "^[^ ]*$1"); shift
 
-case "$1" in
-    --namespace|-n) kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
-esac
-
 container=
 if [ "$1" = -c ]; then
     container=$2
