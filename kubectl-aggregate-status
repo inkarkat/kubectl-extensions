@@ -1,0 +1,28 @@
+#!/bin/bash
+
+awk -v aggregateFieldName=STATUS '
+NR == 1 {
+    for (aggregateFieldNr = 1; aggregateFieldNr <= NF; aggregateFieldNr++) {
+	if ($aggregateFieldNr == aggregateFieldName) next
+    }
+
+    printf "ERROR: Could not locate field named %s in\n%s\n", aggregateFieldName, $0 > "/dev/stderr"
+    exit 3
+}
+
+NR > 1 {
+    state[$aggregateFieldNr] += 1
+}
+
+END {
+    if (length(state) == 0) exit
+
+    PROCINFO["sorted_in"] = "@val_num_desc"
+    sep = ""
+    for (s in state) {
+	printf "%s%d %s", sep, state[s], s
+	sep = ", "
+    }
+    print ""
+}
+'

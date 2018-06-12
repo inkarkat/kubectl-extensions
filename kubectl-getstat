@@ -1,0 +1,4 @@
+#!/bin/bash
+
+set -o pipefail
+kubectl-get "$@" | kubectl-aggregate-status
