@@ -41,5 +41,6 @@ if [ "$lastArg" = '--' ]; then
 	    sed -e '/[0-9]d$/{ x; /^$/{ 1!{ s/.*//; q }; g; b }; G; /\([0-9]\+d\)\n.*\1$/!{ s/.*//; q }; s/^[^\n]*\n// }'; \
 	}
 else
-    exec kubectl-get "${@:1:$(($#-1))}" "${kcArgs[@]}" | grep "$lastArg"
+    kubectl-get "${@:1:$(($#-1))}" "${kcArgs[@]}" | \
+	{ IFS=$'\n' read header; printf '%s\n' "$header"; grep "$lastArg"; }
 fi
