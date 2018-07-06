@@ -32,7 +32,7 @@ esac
 
 if [ "${@:(-2):1}" = '-c' ]; then
     # [SUBCOMMAND ...] [--] POD -c CONTAINER
-    podPattern=${@(-3):1}
+    podPattern=${@:(-3):1}
     container=${!#}
     [ "${@:(-3):1}" = '--' ] && \
 	set -- "${@:1:$(($#-4))}" || \
