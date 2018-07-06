@@ -10,7 +10,7 @@ fi
 
 getAllPodImages()
 {
-    kubectl get pods "$@" -o go-template --template '{{range .items}}{{.metadata.name}}{{"\t"}}{{range .status.containerStatuses}}    {{.image}} {{.containerID}}{{"\t"}}{{end}}{{"\n"}}{{end}}'
+    kubectl get pods "$@" -o go-template --template '{{range .items}}{{if not .status.reason}}{{.metadata.name}}{{"\t"}}{{range .status.containerStatuses}}    {{.image}} {{.containerID}}{{"\t"}}{{end}}{{"\n"}}{{end}}{{end}}'
 }
 
 eval 'getAllPodImages "$@"' "${filter:+|}" '"${filter[@]}"' | sed -e 's#\t#\n#g'

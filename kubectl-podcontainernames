@@ -17,7 +17,7 @@ fi
 
 getAllPodContainerNames()
 {
-    kubectl get pods "$@" -o go-template --template '{{range .items}}{{.metadata.name}}{{range .spec.containers}} -c {{.name}}{{end}}{{"\n"}}{{end}}'
+    kubectl get pods "$@" -o go-template --template '{{range .items}}{{if not .status.reason}}{{.metadata.name}}{{range .spec.containers}} -c {{.name}}{{end}}{{"\n"}}{{end}}{{end}}'
 }
 
 eval 'getAllPodContainerNames "$@"' "${filter:+|}" '"${filter[@]}"' "${containerFilter:+|}" '"${containerFilter[@]}"'
