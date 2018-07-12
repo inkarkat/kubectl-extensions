@@ -13,12 +13,12 @@ Optionally, use the following (Bash) shell function (e.g. in your `.bashrc`) to 
     kubectl() {
         typeset -r kubectlAlias="kubectl-$1"
         if [ $# -eq 0 ]; then
-            kubectl ${KUBECTL_DEFAULT_COMMAND:-get pods}
+            kubectl ${KUBECTL_DEFAULT_COMMAND:-p}
         elif type -t "$kubectlAlias" >/dev/null; then
             shift
-            "$kubectlAlias" "$@"
+            eval $kubectlAlias '"$@"'
         else
-            "$(which kubectl)" "$@"
+            command kubectl "$@"
         fi
     }
 
