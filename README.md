@@ -21,3 +21,5 @@ Optionally, use the following (Bash) shell function (e.g. in your `.bashrc`) to 
             "$(which kubectl)" "$@"
         fi
     }
+
+Note that [Kubernetes also provides its own extension mechanism](https://kubernetes.io/docs/tasks/extend-kubectl/kubectl-plugins/); these need to provide a YAML plugin descriptor, get command-line arguments already parsed, and are invoked through `kubectl plugin PLUGIN-COMMAND`. I don't intend to convert mine into that format, because parsing effort is minimal, and I prefer to seamlessly blend in with (or even override) built-in subcommands.
