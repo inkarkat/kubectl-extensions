@@ -1,0 +1,37 @@
+#!/bin/bash
+
+set -o pipefail
+
+typeset -a filter=()
+if [ $# -ge 2 ] && [ "${@:(-2):1}" = -- ]; then
+    filter=(grep -e "^[^ ]*${!#}")
+    set -- "${@:1:$(($#-2))}"
+fi
+
+: ${KUBECTL_IGNORE_CONTAINERNAMES=kubernetes-vault-renew}
+typeset -a containerFilter=()
+if [ "$KUBECTL_IGNORE_CONTAINERNAMES" ]; then
+    ignoredContainerBranches="${KUBECTL_IGNORE_CONTAINERNAMES// /\\|}"
+    containerFilter=(sed -e "s# -c \\(${ignoredContainerBranches}\\)\\( \\|\$\\)#\\2#")
+fi
+
+getAllPodContainerIPs()
+{
+    kubectl get pods "$@" -o go-template --template '{{range .items}}{{if not .status.reason}}{{.metadata.name}}{{"\t"}}{{.status.podIP}}{{"\n"}}{{end}}{{end}}'
+}
+
+eval 'getAllPodContainerIPs "$@"' "${filter:+|}" '"${filter[@]}"' "${containerFilter:+|}" '"${containerFilter[@]}"' | awk -F '\t' '
+{
+    if (NR > 1)
+	print prev
+    prev=$0
+}
+END {
+    if (NR > 1) {
+	print prev
+    } else {
+	$0 = prev
+	print $2
+    }
+}
+'
