@@ -22,9 +22,11 @@ eval 'getAllPodHosts "$@"' "${filter:+|}" '"${filter[@]}"' | awk -F '\t' '
 	e[$2] = "\t" $1
 }
 END {
-    for (i in e) {
-	print i " (" c[i] "):"
-	print e[i]
+    hostsNum = asorti(e, hosts)
+    for (i = 1; i<= hostsNum; i++) {
+	h = hosts[i]
+	print h " (" c[h] "):"
+	print e[h]
     }
 }
 '
