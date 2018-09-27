@@ -1,0 +1,18 @@
+#!/bin/bash
+
+set -o pipefail
+
+queryItem=${1:?}; shift
+
+typeset -a filter=()
+if [ $# -ge 2 ] && [ "${@:(-2):1}" = -- ]; then
+    filter=(grep -e "^[^ ]*${!#}")
+    set -- "${@:1:$(($#-2))}"
+fi
+
+getAllPodImages()
+{
+    kubectl get pods "$@" -o go-template --template '{{range .items}}{{if not .status.reason}}{{.metadata.name}}{{"\t"}}{{range .status.containerStatuses}}    {{.name}} '"$queryItem"'{{"\t"}}{{end}}{{"\n"}}{{end}}{{end}}'
+}
+
+eval 'getAllPodImages "$@"' "${filter:+|}" '"${filter[@]}"' | sed -e 's#\t#\n#g'
