@@ -3,16 +3,32 @@
 set -o pipefail
 
 queryItem=${1:?}; shift
+typeset -a finalFilter=(sed -e 's#\t#\n#g')
 
-typeset -a filter=()
+filterContainer=
+if [ $# -ge 2 ] && [ "${@:(-2):1}" = '-c' ]; then
+    filterContainer=${!#}
+    set -- "${@:1:$(($#-2))}"
+
+    # Omit PODs that don't have any matching queryItems.
+    finalFilter=(sed -e '/^[^\t]\+\t$/d')
+fi
+
+typeset -a podFilter=()
 if [ $# -ge 2 ] && [ "${@:(-2):1}" = -- ]; then
-    filter=(grep -e "^[^ ]*${!#}")
+    podFilter=(grep -e "^[^ ]*${!#}")
     set -- "${@:1:$(($#-2))}"
 fi
 
 getAllPodImages()
 {
-    kubectl get pods "$@" -o go-template --template '{{range .items}}{{if not .status.reason}}{{.metadata.name}}{{"\t"}}{{range .status.containerStatuses}}    {{.name}} '"$queryItem"'{{"\t"}}{{end}}{{"\n"}}{{end}}{{end}}'
+    if [ "$filterContainer" ]; then
+	local template='{{range .items}}{{if not .status.reason}}{{.metadata.name}}{{"\t"}}{{range .status.containerStatuses}}{{if eq .name "'"$filterContainer"'"}}'"$queryItem"'{{end}}{{end}}{{"\n"}}{{end}}{{end}}'
+    else
+	local template='{{range .items}}{{if not .status.reason}}{{.metadata.name}}{{"\t"}}{{range .status.containerStatuses}}    {{.name}} '"$queryItem"'{{"\t"}}{{end}}{{"\n"}}{{end}}{{end}}'
+    fi
+
+    kubectl get pods "$@" -o go-template --template "$template"
 }
 
-eval 'getAllPodImages "$@"' "${filter:+|}" '"${filter[@]}"' | sed -e 's#\t#\n#g'
+eval 'getAllPodImages "$@"' "${podFilter:+|}" '"${podFilter[@]}"' "${finalFilter:+|}" '"${finalFilter[@]}"'
