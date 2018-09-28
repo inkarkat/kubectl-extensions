@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -o pipefail
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -12,4 +14,4 @@ case "$1" in
 esac
 
 
-exec kubectl-podinfo '{{.containerID}}' "$@"
+kubectl-podinfo '{{.containerID}}' "$@" | sed -e 's#\(^\|\t\)docker://#\1#g'
