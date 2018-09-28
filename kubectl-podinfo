@@ -3,6 +3,7 @@
 set -o pipefail
 
 queryItem=${1:?}; shift
+typeset -a singleResultFilter=()
 typeset -a finalFilter=(sed -e 's#\t#\n#g')
 
 filterContainer=
@@ -16,8 +17,14 @@ fi
 
 typeset -a podFilter=()
 if [ $# -ge 2 ] && [ "${@:(-2):1}" = -- ]; then
-    podFilter=(grep -e "^[^ ]*${!#}")
+    podFilterExpr=${!#}
+    podFilter=(grep -e "^[^ ]*$podFilterExpr")
     set -- "${@:1:$(($#-2))}"
+
+    # Omit POD prefix if there's only a single matching POD and it exactly
+    # matches the passed EXPR.
+    literalPodFilterExpr=$(printf %s "$podFilterExpr" | sed -e 's/[][\$*.^#]/\\&/g')
+    singleResultFilter=(sed -e '1!b' -e "\$s#^${literalPodFilterExpr}\\t##")
 fi
 
 getAllPodImages()
@@ -31,4 +38,4 @@ getAllPodImages()
     kubectl get pods "$@" -o go-template --template "$template"
 }
 
-eval 'getAllPodImages "$@"' "${podFilter:+|}" '"${podFilter[@]}"' "${finalFilter:+|}" '"${finalFilter[@]}"'
+eval 'getAllPodImages "$@"' "${podFilter:+|}" '"${podFilter[@]}"'"${singleResultFilter:+|}" '"${singleResultFilter[@]}"' "${finalFilter:+|}" '"${finalFilter[@]}"'
