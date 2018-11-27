@@ -114,10 +114,10 @@ parse()
 	read -r lastState lastDate < "$lastStateFilespec"
 
 	if [ "$lastState" = "$startTimeOrState" -a "$lastDate" ]; then
-	    printf '%s -c %s has been in status %s %s.\n' "$pod" "$container" "$startTimeOrState" "$(showDuration "$lastDate")"
+	    printf >&2 '%s -c %s has been in status %s %s.\n' "$pod" "$container" "$startTimeOrState" "$(showDuration "$lastDate")"
 	else
-	    printf '%s %s\n' "$startTimeOrState" "$(date --utc +%FT%TZ)" > "$lastStateFilespec"
-	    printf '%s -c %s is currently in status %s.\n' "$pod" "$container" "$startTimeOrState"
+	    printf >&2 '%s %s\n' "$startTimeOrState" "$(date --utc +%FT%TZ)" > "$lastStateFilespec"
+	    printf >&2 '%s -c %s is currently in status %s.\n' "$pod" "$container" "$startTimeOrState"
 	fi
 
 	return
@@ -127,12 +127,12 @@ parse()
     local uptimeInSeconds=$((now - startEpoch))
 
     if [ $uptimeInSeconds -gt $MAX_UPTIME_IN_SECONDS_FOR_NEWNESS ]; then
-	printf '%s -c %s is not yet down (started %s).\n' "$pod" "$container" "$(showDate "$startTimeOrState")"
+	printf >&2 '%s -c %s is not yet down (started %s).\n' "$pod" "$container" "$(showDate "$startTimeOrState")"
 	return
     fi
 
     uptimePlural=s; [ $uptimeInSeconds -eq 1 ] && uptimePlural=
-    printf '%s -c %s started %d second%s ago.\n' "$pod" "$container" "$uptimeInSeconds" "$uptimePlural"
+    printf >&2 '%s -c %s started %d second%s ago.\n' "$pod" "$container" "$uptimeInSeconds" "$uptimePlural"
     if [ $# -gt 0 ]; then
 	# Some kubectl commands (e.g. exec -it) need to read from stdin; restore it.
 	exec 0<&6
