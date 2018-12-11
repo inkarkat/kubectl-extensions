@@ -6,11 +6,12 @@ printUsage()
 {
     cat <<HELPTEXT
 Wait until CONTAINER in POD is running again [and execute the kubectl SUBCOMMAND
-with the POD -c CONTAINER arguments then].
+with the POD -c CONTAINER arguments then]. With --no-initial-wait, only starts
+waiting after the currently running POD goes down.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n|--namespace NAMESPACE] POD [-c CONTAINER] [SUBCOMMAND ...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n|--namespace NAMESPACE] [SUBCOMMAND ...] -- POD [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-n|--namespace NAMESPACE] [SUBCOMMAND ...] [--] POD -c CONTAINER [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-initial-wait] [-n|--namespace NAMESPACE] POD [-c CONTAINER] [SUBCOMMAND ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-initial-wait] [-n|--namespace NAMESPACE] [SUBCOMMAND ...] -- POD [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--no-initial-wait] [-n|--namespace NAMESPACE] [SUBCOMMAND ...] [--] POD -c CONTAINER [-?|-h|--help]'
 }
 
 # Extract the --namespace argument; it may appear anywhere, so we need to go through all command-line arguments and filter them out.
@@ -19,8 +20,9 @@ typeset -a allargs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--namespace|-n) kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
-	*)		allargs+=("$1"); shift;;
+	--no-initial-wait)  shift; KUBECTL_WAIT_MAX_UPTIME_IN_SECONDS_FOR_NEWNESS=2147483647;;
+	--namespace|-n)	    kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
+	*)		    allargs+=("$1"); shift;;
     esac
 done
 set -- "${allargs[@]}"
