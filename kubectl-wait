@@ -104,7 +104,8 @@ parse()
     mapfile results
 
     if [ ${#results[@]} -eq 0 ]; then
-	echo >&2 "ERROR: No results"
+	printf -v kcCommand '%q ' kubectl get pod "${kubectlNamespaceArgs[@]}" ${podFilter:+|} "${podFilter[@]}" ${containerFilter:+|} "${containerFilter[@]}"
+	statusprintf 'ERROR: No results for %s' "${kcCommand// \\| / | }"
 	exit 1
     elif [ ${#results[@]} -gt 1 ]; then
 	echo >&2 "ERROR: Multiple PODs match:"
