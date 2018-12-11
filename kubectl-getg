@@ -27,6 +27,7 @@ do
     esac
 done
 [ "$kcHeaderArg" ] && kcArgs=("$kcHeaderArg" "${kcArgs[@]}")
+isHeader=t; [ "$kcHeaderArg" = '--no-headers=true' ] && isHeader=
 
 case $# in
     0) set -- pods --;;
@@ -37,14 +38,24 @@ lastArg=${!#}
 
 if [ "$lastArg" = '--' ]; then
     kubectl-get "${@:1:$(($#-1))}" "${kcArgs[@]}" --sort-by='{.metadata.creationTimestamp}' | \
-	{ IFS=$'\n' read header; printf '%s\n' "$header"; tac | \
+	{
+	    sedKeepFirstLine=
+	    if [ "$isHeader" ]; then
+		sedKeepFirstLine='1!'
+		IFS=$'\n' read header; printf '%s\n' "$header"
+	    fi
+	    tac | \
 	    # If there are resources aged less than 1d, show all of those, but
 	    # not more. If all resources are at least one day old, show all
 	    # those with the same smallest number of days, but not the even
 	    # older ones.
-	    sed -e '/[0-9]d$/{ x; /^$/{ 1!{ s/.*//; q }; g; b }; G; /\([0-9]\+d\)\n.*\1$/!{ s/.*//; q }; s/^[^\n]*\n// }'; \
+	    sed -e '/[0-9]d$/{ x; /^$/{ '"$sedKeepFirstLine"'{ s/.*//; q }; g; b }; G; /\([0-9]\+d\)\n.*\1$/!{ s/.*//; q }; s/^[^\n]*\n// }';
 	}
 else
     kubectl-get "${@:1:$(($#-1))}" "${kcArgs[@]}" | \
-	{ IFS=$'\n' read header; printf '%s\n' "$header"; grep "$lastArg"; }
+	{
+	    if [ "$isHeader" ]; then
+		IFS=$'\n' read header; printf '%s\n' "$header"
+	    fi
+	    grep "$lastArg"; }
 fi
