@@ -1,6 +1,6 @@
 #!/bin/bash
 
-MAX_UPTIME_IN_SECONDS_FOR_NEWNESS=60
+: ${KUBECTL_WAIT_MAX_UPTIME_IN_SECONDS_FOR_NEWNESS=60}
 
 printUsage()
 {
@@ -131,7 +131,7 @@ parse()
     local now=$(date +%s)
     local uptimeInSeconds=$((now - startEpoch))
 
-    if [ $uptimeInSeconds -gt $MAX_UPTIME_IN_SECONDS_FOR_NEWNESS ]; then
+    if [ $uptimeInSeconds -gt $KUBECTL_WAIT_MAX_UPTIME_IN_SECONDS_FOR_NEWNESS ]; then
 	statusprintf '%s -c %s is not yet down (started %s).' "$pod" "$container" "$(showDate "$startTimeOrState")"
 	return
     fi
