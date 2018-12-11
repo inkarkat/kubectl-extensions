@@ -91,8 +91,9 @@ else
 fi
 statusprintf()
 {
+    typeset SPINNER='/-\|'
     typeset format=$1; shift
-    printf >&2 "[1F[2K${format}\\n" "$@"
+    printf >&2 "[1F[2K${format} %s\\n" "$@" "${SPINNER:$((SECONDS % 4)):1}"
 }
 
 getPodContainerStartTimes()
