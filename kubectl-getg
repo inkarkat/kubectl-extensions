@@ -12,17 +12,21 @@ HELPTEXT
 }
 
 typeset -a kcArgs=()
+kcHeaderArg=
+[ -t 1 ] || kcHeaderArg='--no-headers=true'
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--all-namespaces)	kcArgs+=("$1"); shift;;
 	--namespace|-n|--cluster|--context)	kcArgs+=("$1" "$2"); shift; shift;;
+	--no-headers=*)	kcHeaderArg="$1"; shift;;
 	--)		break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
     esac
 done
+[ "$kcHeaderArg" ] && kcArgs=("$kcHeaderArg" "${kcArgs[@]}")
 
 case $# in
     0) set -- pods --;;

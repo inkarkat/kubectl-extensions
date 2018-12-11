@@ -1,4 +1,4 @@
 #!/bin/bash
 
 set -o pipefail
-kubectl-getg "$@" | kubectl-aggregate-status
+kubectl-getg --no-headers=false "$@" | kubectl-aggregate-status
