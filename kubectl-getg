@@ -11,6 +11,7 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[EXPR|--] [-?|-h|--help]'
 }
 
+typeset -a args=()
 typeset -a kcArgs=()
 kcHeaderArg=
 [ -t 1 ] || kcHeaderArg='--no-headers=true'
@@ -23,16 +24,16 @@ do
 	--no-headers=*)	kcHeaderArg="$1"; shift;;
 	--)		break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
-	*)		break;;
+	*)		args+=("$1"); shift;;
     esac
 done
+set -- "${args[@]}" "$@"
 [ "$kcHeaderArg" ] && kcArgs=("$kcHeaderArg" "${kcArgs[@]}")
 isHeader=t; [ "$kcHeaderArg" = '--no-headers=true' ] && isHeader=
 
 case $# in
     0) set -- pods --;;
     1) set -- pods "$1";;
-    2) set -- pods "$2";;
 esac
 lastArg=${!#}
 
