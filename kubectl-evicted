@@ -1,0 +1,16 @@
+#!/bin/bash
+
+set -o pipefail
+
+typeset -a filter=()
+if [ $# -ge 2 ] && [ "${@:(-2):1}" = -- ]; then
+    filter=(grep -e "^[^ ]*${!#}")
+    set -- "${@:1:$(($#-2))}"
+fi
+
+getAllEvictedPods()
+{
+    kubectl get pods "$@" -o go-template --template '{{range .items}}{{if .status.reason}}{{if eq .status.reason "Evicted" }}{{.metadata.name}}{{"\t"}}{{.status.startTime}}: {{.status.message}}{{"\n"}}{{end}}{{end}}{{end}}'
+}
+
+eval 'getAllEvictedPods "$@"' "${filter:+|}" '"${filter[@]}"' | reldate --date-pattern '\b(?<year>\d\d\d\d)-(?<month>\d\d)-(?<day>\d\d)T(?<hours>\d\d):(?<minutes>\d\d):(?<seconds>\d\d)(?<timezone>Z)\b' --prefer-past

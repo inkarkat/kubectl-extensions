@@ -1,0 +1,17 @@
+#!/bin/bash
+set -e # Terminate the script at first error.
+set -o pipefail
+
+IFS=$'\n'
+typeset -a evictedPods=($(kubectl-evicted "$@" | awk '{print $1}'))
+if [ ${#evictedPods[@]} -eq 0 ]; then
+    echo >&2 "ERROR: No evicted PODs found."
+    exit 99
+fi
+
+# Don't pass the optional "-- EXPR" filter.
+if [ $# -ge 2 ] && [ "${@:(-2):1}" = -- ]; then
+    set -- "${@:1:$(($#-2))}"
+fi
+
+exec kubectl delete pod "$@" "${evictedPods[@]}"
