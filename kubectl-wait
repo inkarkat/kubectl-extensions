@@ -91,6 +91,11 @@ else
 fi
 statusprintf()
 {
+    typeset format=$1; shift
+    printf >&2 "[1F[2K${format}\n" "$@"
+}
+spinningprintf()
+{
     typeset SPINNER='/-\|'
     typeset format=$1; shift
     printf >&2 "[1F[2K${format} %s\\n" "$@" "${SPINNER:$((SECONDS % 4)):1}"
@@ -106,7 +111,7 @@ parse()
 
     if [ ${#results[@]} -eq 0 ]; then
 	printf -v kcCommand '%q ' kubectl get pod "${kubectlNamespaceArgs[@]}" ${podFilter:+|} "${podFilter[@]}" ${containerFilter:+|} "${containerFilter[@]}"
-	statusprintf 'ERROR: No results for %s' "${kcCommand// \\| / | }"
+	spinningprintf 'ERROR: No results for %s' "${kcCommand// \\| / | }"
 	exit 1
     elif [ ${#results[@]} -gt 1 ]; then
 	echo >&2 "ERROR: Multiple PODs match:"
@@ -123,10 +128,10 @@ parse()
 	read -r lastState lastDate < "$lastStateFilespec"
 
 	if [ "$lastState" = "$startTimeOrState" -a "$lastDate" ]; then
-	    statusprintf '%s -c %s has been in status %s %s.' "$pod" "$container" "$startTimeOrState" "$(showDuration "$lastDate")"
+	    spinningprintf '%s -c %s has been in status %s %s.' "$pod" "$container" "$startTimeOrState" "$(showDuration "$lastDate")"
 	else
 	    printf >&2 '%s %s\n' "$startTimeOrState" "$(date --utc +%FT%TZ)" > "$lastStateFilespec"
-	    statusprintf '%s -c %s is currently in status %s.' "$pod" "$container" "$startTimeOrState"
+	    spinningprintf '%s -c %s is currently in status %s.' "$pod" "$container" "$startTimeOrState"
 	fi
 
 	return
@@ -136,7 +141,7 @@ parse()
     local uptimeInSeconds=$((now - startEpoch))
 
     if [ $uptimeInSeconds -gt $KUBECTL_WAIT_MAX_UPTIME_IN_SECONDS_FOR_NEWNESS ]; then
-	statusprintf '%s -c %s is not yet down (started %s).' "$pod" "$container" "$(showDate "$startTimeOrState")"
+	spinningprintf '%s -c %s is not yet down (started %s).' "$pod" "$container" "$(showDate "$startTimeOrState")"
 	return
     fi
 
