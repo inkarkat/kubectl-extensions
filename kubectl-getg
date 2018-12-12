@@ -6,9 +6,9 @@ printUsage()
 Grep for EXPR in list of resources.
 With --, list latest resources.
 Without arguments, list latest pods.
-Usage: "$(basename "$1")" TYPE [...] [EXPR] [--] [-?|-h|--help]
-Usage: "$(basename "$1")" [EXPR] [--] [-?|-h|--help]
 HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'TYPE [...] EXPR|-- [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[EXPR|--] [-?|-h|--help]'
 }
 
 typeset -a kcArgs=()
