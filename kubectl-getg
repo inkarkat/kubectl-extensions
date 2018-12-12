@@ -40,9 +40,7 @@ lastArg=${!#}
 if [ "$lastArg" = '--' ]; then
     kubectl-get "${@:1:$(($#-1))}" "${kcArgs[@]}" --sort-by='{.metadata.creationTimestamp}' | \
 	{
-	    sedKeepFirstLine=
 	    if [ "$isHeader" ]; then
-		sedKeepFirstLine='1!'
 		IFS=$'\n' read header; printf '%s\n' "$header"
 	    fi
 	    tac | \
@@ -54,7 +52,7 @@ if [ "$lastArg" = '--' ]; then
 /[0-9]d$/{
     x
     /^$/{
-	'"$sedKeepFirstLine"'{ s/.*//; q }
+	1!{ s/.*//; q }
 	g
 	b
     }
