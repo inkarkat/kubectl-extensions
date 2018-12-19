@@ -1,0 +1,12 @@
+#!/bin/bash
+
+getAllNamespaces()
+{
+    kubectl get namespaces "$@" -o go-template --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}'
+}
+
+if [ $# -eq 0 ]; then
+    getAllNamespaces
+else
+    getAllNamespaces | grep "$@"
+fi
