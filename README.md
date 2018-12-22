@@ -6,7 +6,7 @@ These are some personal aliases, shortcuts, and extensions that make (my) work w
 
 Download all / some selected extensions (note that some have dependencies, though) and put them somewhere in your `PATH`. You can then invoke them via `kubectl-SUBCOMMAND`.
 
-Optionally, use the following (Bash) shell function (e.g. in your `.bashrc`) to transparently invoke the extensions in the same way as the built-in kubectl commands, via `kubectl SUBCOMMAND`:
+Optionally, use the following (Bash, but should also work in Korn shell and Dash) shell function (e.g. in your `.bashrc`) to transparently invoke the extensions in the same way as the built-in kubectl commands, via `kubectl SUBCOMMAND`:
 
     # Allow definition of Kubectl aliases putting an executable "kubectl-foo"
     # somewhere in the PATH.
@@ -14,7 +14,7 @@ Optionally, use the following (Bash) shell function (e.g. in your `.bashrc`) to 
         typeset -r kubectlAlias="kubectl-$1"
         if [ $# -eq 0 ]; then
             kubectl ${KUBECTL_DEFAULT_COMMAND:-p}
-        elif type -t "$kubectlAlias" >/dev/null; then
+        elif type ${BASH_VERSION:+-t} "$kubectlAlias" >/dev/null 2>&1; then
             shift
             eval $kubectlAlias '"$@"'
         else
