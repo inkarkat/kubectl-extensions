@@ -13,23 +13,27 @@ case "$1" in
 esac
 
 typeset -a sedArgs=()
-typeset -a kubectlArgs=()
+typeset -a kubectlGetArgs=()
+typeset -a kubectlReplaceArgs=()
 typeset -a kubectlOutputFormat=(-o yaml)
 while [ $# -ne 0 ]
 do
     case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	-o)			kubectlOutputFormat=("$1" "$2"); shift; shift;;
 	-[nr]*)			sedArgs+=("$1"); shift;;
 	--@(regexp-extended))	sedArgs+=("$1"); shift;;
 	-[ef])			sedArgs+=("$1" "$2"); shift; shift;;
 	--@(expression|file)=*)	sedArgs+=("$1"); shift;;
 	--@(expression|file))	sedArgs+=("$1" "$2"); shift; shift;;
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-	--)		kubectlArgs+=("$1"); shift; break;;
-	*)		kubectlArgs+=("$1"); shift;;
+	-R)			kubectlReplaceArgs+=("$1"); shift;;
+	--@(allow-missing-template-keys|cascade|force|grace-period|recursive|save-config|timeout)=*)	kubectlReplaceArgs+=("$1"); shift;;
+	--@(allow-missing-template-keys|cascade|force|grace-period|recursive|save-config|timeout))	kubectlReplaceArgs+=("$1" "$2"); shift; shift;;
+	--)		kubectlGetArgs+=("$1"); shift; break;;
+	*)		kubectlGetArgs+=("$1"); shift;;
     esac
 done
-if [ ${#kubectlArgs[@]} -eq 0 -a $# -eq 0 ]; then
+if [ ${#kubectlGetArgs[@]} -eq 0 -a $# -eq 0 ]; then
     printUsage "$0" >&2
     exit 2
 fi
@@ -43,6 +47,6 @@ cleanup()
 [ "$DEBUG" ] || trap 'cleanup' EXIT
 
 
-kubectl get "${kubectlArgs[@]}" "${kubectlOutputFormat[@]}" "$@" > "$TMPFILE" || exit $?
+kubectl get "${kubectlGetArgs[@]}" "${kubectlOutputFormat[@]}" "$@" > "$TMPFILE" || exit $?
 sed -i "${sedArgs[@]}" "$TMPFILE" || exit $?
-kubectl replace -f "$TMPFILE"
+kubectl replace "${kubectlReplaceArgs[@]}" -f "$TMPFILE"
