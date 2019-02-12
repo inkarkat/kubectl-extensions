@@ -1,0 +1,48 @@
+#!/bin/bash
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Edit a resource's definition with sed.
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-o json] [-n] [-e script] [-f script-file] [-r] [KUBECTL-OPTIONS ...] RESOURCE/NAME [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+typeset -a sedArgs=()
+typeset -a kubectlArgs=()
+typeset -a kubectlOutputFormat=(-o yaml)
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	-o)			kubectlOutputFormat=("$1" "$2"); shift; shift;;
+	-[nr]*)			sedArgs+=("$1"); shift;;
+	--@(regexp-extended))	sedArgs+=("$1"); shift;;
+	-[ef])			sedArgs+=("$1" "$2"); shift; shift;;
+	--@(expression|file)=*)	sedArgs+=("$1"); shift;;
+	--@(expression|file))	sedArgs+=("$1" "$2"); shift; shift;;
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--)		kubectlArgs+=("$1"); shift; break;;
+	*)		kubectlArgs+=("$1"); shift;;
+    esac
+done
+if [ ${#kubectlArgs[@]} -eq 0 -a $# -eq 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+
+
+TMPFILE=$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$$RANDOM")
+cleanup()
+{
+    rm -f "$TMPFILE" 2>/dev/null
+}
+[ "$DEBUG" ] || trap 'cleanup' EXIT
+
+
+kubectl get "${kubectlArgs[@]}" "${kubectlOutputFormat[@]}" "$@" > "$TMPFILE" || exit $?
+sed -i "${sedArgs[@]}" "$TMPFILE" || exit $?
+kubectl replace -f "$TMPFILE"
