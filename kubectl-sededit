@@ -36,6 +36,10 @@ done
 if [ ${#kubectlGetArgs[@]} -eq 0 -a $# -eq 0 ]; then
     printUsage "$0" >&2
     exit 2
+elif [ ${#sedArgs[@]} -eq 0 ]; then
+    echo >&2 'ERROR: No sed arguments.'
+    printUsage "$0" >&2
+    exit 2
 fi
 
 
