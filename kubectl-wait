@@ -65,7 +65,7 @@ elif [ "$KUBECTL_IGNORE_CONTAINERNAMES" ]; then
     containerFilter=(sed -e "s# -c \\(${ignoredContainerBranches}\\) [^ ]\\+\\( \\|\$\\)#\\2#")
 fi
 
-if which reldate > /dev/null 2>&1; then
+if type -t reldate > /dev/null; then
     showDate()
     {
 	reldate <<<"$1"
