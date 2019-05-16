@@ -78,7 +78,7 @@ if which reldate > /dev/null 2>&1; then
 else
     showDate()
     {
-	date --set "$1"
+	date --date "$1"
     }
     showDuration()
     {
