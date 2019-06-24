@@ -1,16 +1,3 @@
 #!/bin/bash
 
-set -o pipefail
-
-typeset -a filter=()
-if [ $# -ge 2 ] && [ "${@:(-2):1}" = -- ]; then
-    filter=(grep -e "^[^ ]*${!#}")
-    set -- "${@:1:$(($#-2))}"
-fi
-
-getAllPodNames()
-{
-    kubectl get pods "$@" -o go-template --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}'
-}
-
-eval 'getAllPodNames "$@"' "${filter:+|}" '"${filter[@]}"'
+KUBECTL_NAMES=pod kubectl-names-command "$@"

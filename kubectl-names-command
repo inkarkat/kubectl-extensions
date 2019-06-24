@@ -1,0 +1,29 @@
+#!/bin/bash
+set -o pipefail
+set -o noglob
+
+typeset -a names=(${KUBECTL_NAMES:?})
+
+typeset -a filter=()
+if [ $# -ge 2 ] && [ "${@:(-2):1}" = -- ]; then
+    filter=(grep -e "^[^ ]*${!#}")
+    set -- "${@:1:$(($#-2))}"
+fi
+
+getAllNames()
+{
+    kubectl get "$name" "$@" -o go-template --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}'
+}
+
+iterateNames()
+{
+    status=
+    for name in "${names[@]}"
+    do
+	getAllNames "$@"
+	exitStatus=$?; if [ -z "$status" ] || [ $exitStatus -lt $status ]; then status=$exitStatus; fi;
+    done
+    return $status
+}
+
+eval 'iterateNames "$@"' "${filter:+|}" '"${filter[@]}"'
