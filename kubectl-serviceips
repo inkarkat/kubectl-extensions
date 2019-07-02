@@ -1,0 +1,31 @@
+#!/bin/bash
+
+set -o pipefail
+
+typeset -a filter=()
+if [ $# -ge 2 ] && [ "${@:(-2):1}" = -- ]; then
+    filter=(grep -e "^[^ ]*${!#}")
+    set -- "${@:1:$(($#-2))}"
+fi
+
+getAllServiceIPs()
+{
+    local -r SELECTOR='{{.metadata.name}}{{"\t"}}{{.spec.clusterIP}}{{"\n"}}'
+    kubectl get services "$@" -o go-template --template "{{if .items}}{{range .items}}${SELECTOR}{{end}}{{else}}${SELECTOR}{{end}}"
+}
+
+eval 'getAllServiceIPs "$@"' "${filter:+|}" '"${filter[@]}"' | awk -F '\t' '
+{
+    if (NR > 1)
+	print prev
+    prev=$0
+}
+END {
+    if (NR > 1) {
+	print prev
+    } else {
+	$0 = prev
+	print $2
+    }
+}
+'
