@@ -10,7 +10,8 @@ fi
 
 getAllEvictedPods()
 {
-    kubectl get pods "$@" -o go-template --template '{{range .items}}{{if .status.reason}}{{if eq .status.reason "Evicted" }}{{.metadata.name}}{{"\t"}}{{.status.startTime}}: {{.status.message}}{{"\n"}}{{end}}{{end}}{{end}}'
+    local -r SELECTOR='{{if .status.reason}}{{if eq .status.reason "Evicted" }}{{.metadata.name}}{{"\t"}}{{.status.startTime}}: {{.status.message}}{{"\n"}}{{end}}{{end}}'
+    kubectl get pods "$@" -o go-template --template "{{if .items}}{{range .items}}${SELECTOR}{{end}}{{else}}${SELECTOR}{{end}}"
 }
 
 eval 'getAllEvictedPods "$@"' "${filter:+|}" '"${filter[@]}"' | reldate --date-pattern '\b(?<year>\d\d\d\d)-(?<month>\d\d)-(?<day>\d\d)T(?<hours>\d\d):(?<minutes>\d\d):(?<seconds>\d\d)(?<timezone>Z)\b' --prefer-past

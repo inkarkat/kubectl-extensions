@@ -30,12 +30,12 @@ fi
 getAllPodImages()
 {
     if [ "$filterContainer" ]; then
-	local template='{{range .items}}{{if not .status.reason}}{{.metadata.name}}{{"\t"}}{{range .status.containerStatuses}}{{if eq .name "'"$filterContainer"'"}}'"$queryItem"'{{end}}{{end}}{{"\n"}}{{end}}{{end}}'
+	local -r SELECTOR='{{if not .status.reason}}{{.metadata.name}}{{"\t"}}{{range .status.containerStatuses}}{{if eq .name "'"$filterContainer"'"}}'"$queryItem"'{{end}}{{end}}{{"\n"}}{{end}}'
     else
-	local template='{{range .items}}{{if not .status.reason}}{{.metadata.name}}{{"\t"}}{{range .status.containerStatuses}}    {{.name}} '"$queryItem"'{{"\t"}}{{end}}{{"\n"}}{{end}}{{end}}'
+	local -r SELECTOR='{{if not .status.reason}}{{.metadata.name}}{{"\t"}}{{range .status.containerStatuses}}    {{.name}} '"$queryItem"'{{"\t"}}{{end}}{{"\n"}}{{end}}'
     fi
 
-    kubectl get pods "$@" -o go-template --template "$template"
+    kubectl get pods "$@" -o go-template --template "{{if .items}}{{range .items}}${SELECTOR}{{end}}{{else}}${SELECTOR}{{end}}"
 }
 
 eval 'getAllPodImages "$@"' "${podFilter:+|}" '"${podFilter[@]}"'"${singleResultFilter:+|}" '"${singleResultFilter[@]}"' "${finalFilter:+|}" '"${finalFilter[@]}"'

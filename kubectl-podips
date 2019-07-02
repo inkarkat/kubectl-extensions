@@ -17,7 +17,8 @@ fi
 
 getAllPodContainerIPs()
 {
-    kubectl get pods "$@" -o go-template --template '{{range .items}}{{if not .status.reason}}{{.metadata.name}}{{"\t"}}{{.status.podIP}}{{"\n"}}{{end}}{{end}}'
+    local -r SELECTOR='{{.metadata.name}}{{"\t"}}{{.status.podIP}}{{"\n"}}'
+    kubectl get pods "$@" -o go-template --template "{{if .items}}{{range .items}}{{if not .status.reason}}${SELECTOR}{{end}}{{end}}{{else}}${SELECTOR}{{end}}"
 }
 
 eval 'getAllPodContainerIPs "$@"' "${filter:+|}" '"${filter[@]}"' "${containerFilter:+|}" '"${containerFilter[@]}"' | awk -F '\t' '

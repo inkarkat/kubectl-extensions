@@ -17,7 +17,8 @@ fi
 
 getAllPodContainerStartTimes()
 {
-    kubectl get pods "$@" -o go-template --template '{{range .items}}{{.metadata.name}}{{range .status.containerStatuses}} {{.name}}: {{if .state.running}}{{.state.running.startedAt}}{{else}}{{ range $key, $value := .state }}{{$key}}{{end}}{{end}}{{end}}{{if .status.reason}} (Status:{{.status.reason}}){{end}}{{"\n"}}{{end}}'
+    local -r SELECTOR='{{.metadata.name}}{{range .status.containerStatuses}} {{.name}}: {{if .state.running}}{{.state.running.startedAt}}{{else}}{{ range $key, $value := .state }}{{$key}}{{end}}{{end}}{{end}}{{if .status.reason}} (Status:{{.status.reason}}){{end}}{{"\n"}}'
+    kubectl get pods "$@" -o go-template --template "{{if .items}}{{range .items}}${SELECTOR}{{end}}{{else}}${SELECTOR}{{end}}"
 }
 
 eval 'getAllPodContainerStartTimes "$@"' "${filter:+|}" '"${filter[@]}"' "${containerFilter:+|}" '"${containerFilter[@]}"'
