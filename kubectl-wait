@@ -5,13 +5,14 @@
 printUsage()
 {
     cat <<HELPTEXT
-Wait until CONTAINER in POD is running again [and execute the kubectl SUBCOMMAND
-with the POD -c CONTAINER arguments then]. With --no-initial-wait, only starts
-waiting after the currently running POD goes down.
+Wait until CONTAINER in POD (or matching POD-PATTERN) is running again [and
+execute the kubectl SUBCOMMAND with the POD -c CONTAINER arguments then]. With
+--no-initial-wait, only starts waiting after the currently running POD goes
+down.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-W|--no-initial-wait] [-n|--namespace NAMESPACE] POD [-c CONTAINER] [SUBCOMMAND ...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-W|--no-initial-wait] [-n|--namespace NAMESPACE] [SUBCOMMAND ...] -- POD [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-W|--no-initial-wait] [-n|--namespace NAMESPACE] [SUBCOMMAND ...] [--] POD -c CONTAINER [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-W|--no-initial-wait] [-n|--namespace NAMESPACE] POD[-PATTERN] [-c CONTAINER] [SUBCOMMAND ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-W|--no-initial-wait] [-n|--namespace NAMESPACE] [SUBCOMMAND ...] -- POD[-PATTERN] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-W|--no-initial-wait] [-n|--namespace NAMESPACE] [SUBCOMMAND ...] [--] POD[-PATTERN] -c CONTAINER [-?|-h|--help]'
 }
 
 # Extract the --namespace argument; it may appear anywhere, so we need to go through all command-line arguments and filter them out.
