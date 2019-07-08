@@ -136,6 +136,7 @@ parse()
 	for r in "${results[@]}"
 	do
 	    read -r pod containerArg container startTimeOrState remainder <<< "$r"
+	    [ "$startTimeOrState" ] || continue
 	    date --date "$startTimeOrState" +%s >/dev/null 2>&1 && runningResults+=("$r")
 	done
 
