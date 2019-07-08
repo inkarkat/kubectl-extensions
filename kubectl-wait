@@ -100,6 +100,18 @@ spinningprintf()
     typeset format=$1; shift
     printf >&2 "[1F[2K${format} %s\\n" "$@" "${SPINNER:$((SECONDS % 4)):1}"
 }
+printErrorResults()
+{
+    local message="$1"; shift
+    local sep=
+    printf >&2 '%s' "$message"
+    for r
+    do
+	printf >&2 '%s%s' "$sep" "$r"
+	sep=', '
+    done
+    printf >&2 '\n'
+}
 
 getPodContainerStartTimes()
 {
@@ -110,20 +122,32 @@ parse()
 {
     mapfile results
 
+    local IFS=' '
     if [ ${#results[@]} -eq 0 ]; then
 	printf -v kcCommand '%q ' kubectl get pods "${kubectlNamespaceArgs[@]}" ${podFilter:+|} "${podFilter[@]}" ${containerFilter:+|} "${containerFilter[@]}"
 	spinningprintf 'ERROR: No results for %s' "${kcCommand// \\| / | }"
 	exit 1
-    elif [ ${#results[@]} -gt 1 ]; then
-	echo >&2 "ERROR: Multiple PODs match:"
-	printf >&2 '%s\n' "${results[@]%% *}"
-	exit 1
+    elif [ ${#results[@]} -eq 1 ]; then
+	read -r pod containerArg container startTimeOrState remainder <<< "${results[0]}"
+    else
+	typeset -a runningResults=()
+	local r
+	for r in "${results[@]}"
+	do
+	    read -r pod containerArg container startTimeOrState remainder <<< "$r"
+	    date --date "$startTimeOrState" +%s >/dev/null 2>&1 && runningResults+=("$r")
+	done
+
+	if [ ${#runningResults[@]} -eq 0 ]; then
+	    printErrorResults "ERROR: Multiple PODs match, but none is running:" "${results[@]%% *}"
+	    exit 1
+	elif [ ${#runningResults[@]} -gt 1 ]; then
+	    printErrorResults "ERROR: Multiple PODs are running:" "${runningResults[@]%% *}"
+	    exit 1
+	fi
     fi
 
-    local IFS=' '
-    read -r pod containerArg container startTimeOrState remainder <<< "${results[0]}"
     : "${pod:?}" "${containerArg:?}" "${container:?}" "${startTimeOrState:?}"
-
     local startEpoch
     if ! startEpoch=$(date --date "$startTimeOrState" +%s 2>/dev/null); then
 	read -r lastState lastDate < "$lastStateFilespec"
