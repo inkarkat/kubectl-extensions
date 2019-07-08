@@ -149,9 +149,21 @@ parse()
 	fi
     fi
 
-    read -r pod containerArg container startTimeOrState remainder <<< "${results[0]}"
-    : "${pod:?}" "${containerArg:?}" "${container:?}" "${startTimeOrState:?}"
     local startEpoch
+    read -r pod containerArg container startTimeOrState remainder <<< "${results[0]}"
+
+    : "${pod:?}"
+    if [ ! "$startTimeOrState" ]; then
+	local phase="$(kubectl "${kubectlNamespaceArgs[@]}" get pod "$pod" -o go-template --template '{{.state.phase}}')"
+	if [ "$phase" ]; then
+	    spinningprintf '%s is currently in phase %s.' "$pod" "$phase"
+	else
+	    spinningprintf '%s currently has an unknown status.' "$pod"
+	fi
+	return 0
+    fi
+
+    : "${containerArg:?}" "${container:?}" "${startTimeOrState:?}"
     if ! startEpoch=$(date --date "$startTimeOrState" +%s 2>/dev/null); then
 	read -r lastState lastDate < "$lastStateFilespec"
 
@@ -162,7 +174,7 @@ parse()
 	    spinningprintf '%s -c %s is currently in status %s.' "$pod" "$container" "$startTimeOrState"
 	fi
 
-	return
+	return 0
     fi
 
     local now=$(date +%s)
@@ -170,7 +182,7 @@ parse()
 
     if [ $uptimeInSeconds -gt $KUBECTL_WAIT_MAX_UPTIME_IN_SECONDS_FOR_NEWNESS ]; then
 	spinningprintf '%s -c %s is not yet down (started %s).' "$pod" "$container" "$(showDate "$startTimeOrState")"
-	return
+	return 0
     fi
 
     uptimePlural=s; [ $uptimeInSeconds -eq 1 ] && uptimePlural=
