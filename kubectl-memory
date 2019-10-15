@@ -1,5 +1,5 @@
 #!/bin/bash
-#!/usr/bin/env bash
+shopt -qs extglob
 
 # This script reproduces what the kubelet does
 # to calculate memory.available relative to root cgroup.
@@ -38,11 +38,20 @@ bytesToUnits memory.available_in_bytes "$memory_available_in_bytes"
 
 
 [ "$HOSTNAME" ] || exit
-allocatable_memory_in_kibi="$(kubectl get node "$@" -o json "$HOSTNAME" | jq -r '.status.allocatable.memory')"
-allocatable_memory_in_bytes=$((${allocatable_memory_in_kibi%Ki} * 1024))
+convertToBytes()
+{
+    local value="$(< /dev/stdin)"
+    local number="${value%%+([^0-9])}"
+    case "$value" in
+	*Ki)	printf %d "$((number * 1024))";;
+	*Mi)	printf %d "$((number * 1024 * 1024))";;
+	*Gi)	printf %d "$((number * 1024 * 1024 * 1024))";;
+	*)	printf %s "$value";;
+    esac
+}
+allocatable_memory_in_bytes="$(kubectl get node "$@" -o json "$HOSTNAME" | jq -r '.status.allocatable.memory' | convertToBytes)"
 
-used_memory_in_mebi=$(kubectl top node "$@" "$HOSTNAME" | awk 'END { print $4 }')
-used_memory_in_bytes=$((${used_memory_in_mebi%Mi} * 1024 * 1024))
+used_memory_in_bytes=$(kubectl top node "$@" "$HOSTNAME" | awk 'END { print $4 }' | convertToBytes)
 
 echo
 bytesToUnits allocatable_memory "$allocatable_memory_in_bytes"
