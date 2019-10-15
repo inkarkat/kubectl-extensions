@@ -5,10 +5,10 @@ shopt -qs extglob
 # to calculate memory.available relative to root cgroup.
 
 # current memory usage
-memory_capacity_in_kb=$(cat /proc/meminfo | grep MemTotal | awk '{print $2}')
+memory_capacity_in_kb=$(< /proc/meminfo | grep MemTotal | awk '{print $2}')
 memory_capacity_in_bytes=$((memory_capacity_in_kb * 1024))
-memory_usage_in_bytes=$(cat /sys/fs/cgroup/memory/memory.usage_in_bytes)
-memory_total_inactive_file=$(cat /sys/fs/cgroup/memory/memory.stat | grep total_inactive_file | awk '{print $2}')
+memory_usage_in_bytes=$(< /sys/fs/cgroup/memory/memory.usage_in_bytes)
+memory_total_inactive_file=$(< /sys/fs/cgroup/memory/memory.stat | grep total_inactive_file | awk '{print $2}')
 
 memory_working_set=${memory_usage_in_bytes}
 if [ "$memory_working_set" -lt "$memory_total_inactive_file" ];
