@@ -37,11 +37,11 @@ bytesToUnits memory.working_set "$memory_working_set"
 bytesToUnits memory.available_in_bytes "$memory_available_in_bytes"
 
 
-if [ $# -ge 1 ]; then
-    allocatable_memory_in_kibi="$(kubectl get node "$@" -o json | jq -r '.status.allocatable.memory')"
+if [ "$HOSTNAME" ]; then
+    allocatable_memory_in_kibi="$(kubectl get node "$@" -o json "$HOSTNAME" | jq -r '.status.allocatable.memory')"
     allocatable_memory_in_bytes=$((${allocatable_memory_in_kibi%Ki} * 1024))
 
-    used_memory_in_mebi=$(kubectl top node "$@" | awk 'END { print $4 }')
+    used_memory_in_mebi=$(kubectl top node "$@" "$HOSTNAME" | awk 'END { print $4 }')
     used_memory_in_bytes=$((${used_memory_in_mebi%Mi} * 1024 * 1024))
 
     echo
