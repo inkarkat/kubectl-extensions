@@ -18,14 +18,20 @@ else
     memory_working_set=$((memory_usage_in_bytes - memory_total_inactive_file))
 fi
 
-memory_available_in_bytes=$((memory_capacity_in_bytes - memory_working_set))
-memory_available_in_kb=$((memory_available_in_bytes / 1024))
-memory_available_in_mb=$((memory_available_in_kb / 1024))
+bytesToUnits()
+{
+    local what="${1:?}"; shift
+    local byteNum="${1:?}"; shift
 
-echo "memory.capacity_in_bytes $memory_capacity_in_bytes"
-echo "memory.usage_in_bytes $memory_usage_in_bytes"
-echo "memory.total_inactive_file $memory_total_inactive_file"
-echo "memory.working_set $memory_working_set"
-echo "memory.available_in_bytes $memory_available_in_bytes"
-echo "memory.available_in_kb $memory_available_in_kb"
-echo "memory.available_in_mb $memory_available_in_mb"
+    local kibiNum=$((byteNum / 1024))
+    local mebiNum=$((kibiNum / 1024))
+    local gibiNum=$((mebiNum / 1024))
+    printf '%-30s %14d bytes = %11d KiB = %8d MiB = %5d GiB\n' "$what" "$byteNum" "$kibiNum" "$mebiNum" "$gibiNum"
+}
+memory_available_in_bytes=$((memory_capacity_in_bytes - memory_working_set))
+
+bytesToUnits memory.capacity_in_bytes "$memory_capacity_in_bytes"
+bytesToUnits memory.usage_in_bytes "$memory_usage_in_bytes"
+bytesToUnits memory.total_inactive_file "$memory_total_inactive_file"
+bytesToUnits memory.working_set "$memory_working_set"
+bytesToUnits memory.available_in_bytes "$memory_available_in_bytes"
