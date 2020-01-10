@@ -1,6 +1,6 @@
 #!/bin/bash
 
-awk -v aggregateFieldName=STATUS '
+exec awk -v aggregateFieldName=STATUS '
 NR == 1 {
     for (aggregateFieldNr = 1; aggregateFieldNr <= NF; aggregateFieldNr++) {
 	if ($aggregateFieldNr == aggregateFieldName) next
