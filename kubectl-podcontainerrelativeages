@@ -1,3 +1,6 @@
 #!/bin/bash
 
-exec kubectl-podcontainerages "$@" | reldate --date-pattern '\b(?<year>\d\d\d\d)-(?<month>\d\d)-(?<day>\d\d)T(?<hours>\d\d):(?<minutes>\d\d):(?<seconds>\d\d)(?<timezone>Z)\b' --prefer-past --prefix \( --suffix \)
+typeset -a reldate=()
+type -t reldate >/dev/null && reldate=(reldate --date-pattern '\b(?<year>\d\d\d\d)-(?<month>\d\d)-(?<day>\d\d)T(?<hours>\d\d):(?<minutes>\d\d):(?<seconds>\d\d)(?<timezone>Z)\b' --prefer-past)
+
+exec kubectl-podcontainerages "$@" "${reldate:+|}" '"${reldate[@]}"'
