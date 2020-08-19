@@ -41,9 +41,22 @@ do
     [ "$({ echo -; printf '%s\n' "${pods[@]}"; } | grep -v -e "$ka")" = '-' ] || kubectlArgsWithoutPod+=("$ka")
 done
 
+if type -t header >/dev/null; then
+    typeset -a headerFirstArg=(--first)
+    printHeader()
+    {
+	header "${headerFirstArg[@]}" "$@"
+	headerFirstArg=()
+    }
+else
+    printHeader() { :; }
+fi
+
 status=0
 for pod in "${pods[@]}"
 do
+    [ ${#pods[@]} -gt 1 ] && printHeader "$pod"
+
     homeDirspec="$(kubectl exec "$pod" "${containerArgs[@]}" "${kubectlArgsWithoutPod[@]}" -- bash -c 'echo $HOME')" || { status=$?; printf >&2 'ERROR: Failed to obtain home directory for %s.\n' "$pod"; continue; }
     [ -n "$homeDirspec" ] || { status=$?; printf >&2 'ERROR: Obtained no home directory for %s.\n' "$pod"; continue; }
 
