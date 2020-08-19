@@ -40,6 +40,10 @@ for arg in "${kubectlArgs[@]}"
 do
     [ "$({ echo -; printf '%s\n' "${pods[@]}"; } | grep -v -e "$arg")" = '-' ] || kubectlArgsWithoutPod+=("$arg")
 done
+if [ $((${#kubectlArgsWithoutPod[@]} + 1)) -ne ${#kubectlArgs[@]} ]; then
+    echo >&2 'ERROR: Could not locate POD argument.'
+    exit 3
+fi
 
 if type -t header >/dev/null; then
     typeset -a headerFirstArg=(--first)
