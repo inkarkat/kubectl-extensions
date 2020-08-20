@@ -2,6 +2,8 @@
 set -o noglob
 shopt -qs extglob
 
+readonly UNIXHOME="$HOME/Unixhome"
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -29,6 +31,9 @@ done
 if [ ${#kubectlArgs[@]} -eq 0 ]; then
     printUsage "$0" >&2
     exit 2
+elif [ ! -d "$UNIXHOME" ]; then
+    echo >&2 'FATAL: Unixhome does not exist.'
+    exit 3
 fi
 
 if [ "$isLaunch" ]; then
@@ -36,7 +41,7 @@ if [ "$isLaunch" ]; then
     [ -n "$homeDirspec" ] || { status=$?; printf >&2 'ERROR: Obtained no home directory for %s.\n' "$pod"; exit $status; }
 
     [ -t 1 ] && printf 'Copying Unixhome to %s...\r' "$pod"
-    kubectl cp ~/Unixhome "${pod}:${homeDirspec%/}/" "${kubectlArgs[@]}" || { status=$?; printf >&2 'ERROR: Could not copy Unixhome into the container in %s.\n' "$pod"; exit $status; }
+    kubectl cp "$UNIXHOME" "${pod}:${homeDirspec%/}/" "${kubectlArgs[@]}" || { status=$?; printf >&2 'ERROR: Could not copy Unixhome into the container in %s.\n' "$pod"; exit $status; }
 
     if kubectl exec "$pod" "${kubectlArgs[@]}" -- "${homeDirspec%/}/Unixhome/bin/ingo/syncUnixhome-core/bin/setupUnixhome" "${setupUnixhomeArgs[@]}"; then
 	printf 'Successfully set up Unixhome in %s under %s.\n' "$pod" "${homeDirspec%/}"
