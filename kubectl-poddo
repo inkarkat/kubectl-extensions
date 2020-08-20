@@ -1,0 +1,95 @@
+#!/bin/bash
+set -o noglob
+shopt -qs extglob
+
+: ${KUBECTL_PODDO_POD_MARKER:='{}'}
+podMarker="$KUBECTL_PODDO_POD_MARKER"; unset KUBECTL_PODDO_POD_MARKER
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute SIMPLECOMMAND and/or COMMANDLINE on each passed POD (or matching
+POD-PATTERN) [of container CONTAINER-NAME].
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[KUBECTL-ARGS] [--command "COMMANDLINE" [--command ...]] POD[-PATTERN] [-c CONTAINER] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
+}
+
+typeset -a kubectlArgs=()
+typeset -a containerArgs=()
+isNeedEval=
+typeset -a commands=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--command)	shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
+	-c)		containerArgs+=("$1" "$2"); shift; shift;;
+	--)		shift; break;;
+	*)		kubectlArgs+=("$1"); shift;;
+    esac
+done
+if [ ${#kubectlArgs[@]} -eq 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
+if [ $# -ne 0 ]; then
+    if [ "$isNeedEval" ]; then
+	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+	# undo the effects of eval.
+	printf -v quotedSimpleCommand '%q ' "$@"
+	printf -v escapedPodMarker %q "$podMarker"
+	commands+=(${commands:+;} "${quotedSimpleCommand//"$escapedPodMarker"/$podMarker}")	# %q escapes {}, we don't want that to have it interpolated later.
+    else
+	commands=("$@")
+    fi
+fi
+if [ ${#commands[@]} -eq 0 ]; then
+    echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
+
+
+IFS=$'\n'
+typeset -a pods=($(kubectl-getg --no-headers=true "${kubectlArgs[@]}" | awk '{ print $1 }'))
+[ ${#pods[@]} -gt 0 ] || exit 1
+
+typeset -a kubectlArgsWithoutPod=()
+for arg in "${kubectlArgs[@]}"
+do
+    [ "$({ echo -; printf '%s\n' "${pods[@]}"; } | grep -v -e "$arg")" = '-' ] || kubectlArgsWithoutPod+=("$arg")
+done
+if [ $((${#kubectlArgsWithoutPod[@]} + 1)) -ne ${#kubectlArgs[@]} ]; then
+    echo >&2 'ERROR: Could not locate POD argument.'
+    exit 3
+fi
+
+if type -t header >/dev/null; then
+    typeset -a headerFirstArg=(--first)
+    printHeader()
+    {
+	header "${headerFirstArg[@]}" "$@"
+	headerFirstArg=()
+    }
+else
+    printHeader() { :; }
+fi
+
+status=0
+for pod in "${pods[@]}"
+do
+    [ ${#pods[@]} -gt 1 ] && printHeader "$pod"
+
+    typeset -a p=("$pod")
+    [ "$isNeedEval" ] && printf -v pod '%q' "$pod"
+    typeset -a interpolatedCommands=("${commands[@]//"$podMarker"/$pod}")
+    [ "${interpolatedCommands[*]}" = "${commands[*]}" ] || p=()
+
+    if [ "$isNeedEval" ]; then
+	eval "${interpolatedCommands[@]}" '"${p[@]}" "${containerArgs[@]}" "${kubectlArgsWithoutPod[@]}"'
+    else
+	"${interpolatedCommands[@]}" "${p[@]}" "${containerArgs[@]}" "${kubectlArgsWithoutPod[@]}"
+    fi || status=$?
+done
+exit $status

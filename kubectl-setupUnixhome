@@ -12,17 +12,17 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[KUBECTL-ARGS] POD[-PATTERN] [-c CONTAINER] [--bootstrap] [--check|--nobackup|--backup BACKUPDIR] [-v|--verbose [-v|--verbose]|-q|--quiet] [-?|-h|--help]'
 }
 
+isLaunch=
 typeset -a kubectlArgs=()
-typeset -a containerArgs=()
 typeset -a setupUnixhomeArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
-	-c)		containerArgs+=("$1" "$2"); shift; shift;;
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--launch)	shift; pod="$1"; shift; isLaunch=t;;
 	-+([vq]))	setupUnixhomeArgs+=("$1"); shift;;
 	--@(bootstrap|check|nobackup|verbose|quiet))	setupUnixhomeArgs+=("$1"); shift;;
 	--@(backup))	setupUnixhomeArgs+=("$1" "$2"); shift; shift;;
-	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	*)		kubectlArgs+=("$1"); shift;;
     esac
 done
@@ -31,43 +31,18 @@ if [ ${#kubectlArgs[@]} -eq 0 ]; then
     exit 2
 fi
 
-IFS=$'\n'
-typeset -a pods=($(kubectl-getg --no-headers=true "${kubectlArgs[@]}" | awk '{ print $1 }'))
-[ ${#pods[@]} -gt 0 ] || exit 1
+if [ "$isLaunch" ]; then
+    homeDirspec="$(kubectl exec "$pod" "${kubectlArgs[@]}" -- bash -c 'echo $HOME')" || { status=$?; printf >&2 'ERROR: Failed to obtain home directory for %s.\n' "$pod"; exit $status; }
+    [ -n "$homeDirspec" ] || { status=$?; printf >&2 'ERROR: Obtained no home directory for %s.\n' "$pod"; exit $status; }
 
-typeset -a kubectlArgsWithoutPod=()
-for arg in "${kubectlArgs[@]}"
-do
-    [ "$({ echo -; printf '%s\n' "${pods[@]}"; } | grep -v -e "$arg")" = '-' ] || kubectlArgsWithoutPod+=("$arg")
-done
-if [ $((${#kubectlArgsWithoutPod[@]} + 1)) -ne ${#kubectlArgs[@]} ]; then
-    echo >&2 'ERROR: Could not locate POD argument.'
-    exit 3
-fi
+    kubectl cp ~/Unixhome "${pod}:${homeDirspec%/}/" "${kubectlArgs[@]}" || { status=$?; printf >&2 'ERROR: Could not copy Unixhome into the container in %s.\n' "$pod"; exit $status; }
 
-if type -t header >/dev/null; then
-    typeset -a headerFirstArg=(--first)
-    printHeader()
-    {
-	header "${headerFirstArg[@]}" "$@"
-	headerFirstArg=()
-    }
+    if kubectl exec "$pod" "${kubectlArgs[@]}" -- "${homeDirspec%/}/Unixhome/bin/ingo/syncUnixhome-core/bin/setupUnixhome" "${setupUnixhomeArgs[@]}"; then
+	printf 'Successfully set up Unixhome in %s under %s.\n' "$pod" "${homeDirspec%/}"
+    else
+	status=$?; printf >&2 'ERROR: Setup of Unixhome failed in %s.\n' "$pod"; exit $status
+    fi
 else
-    printHeader() { :; }
+    readonly scriptFilespec="${BASH_SOURCE[0]}"
+    eval kubectl-poddo "${kubectlArgs[@]}" -- "$scriptFilespec" --launch '{}' "${setupUnixhomeArgs[@]}"
 fi
-
-status=0
-for pod in "${pods[@]}"
-do
-    [ ${#pods[@]} -gt 1 ] && printHeader "$pod"
-
-    homeDirspec="$(kubectl exec "$pod" "${containerArgs[@]}" "${kubectlArgsWithoutPod[@]}" -- bash -c 'echo $HOME')" || { status=$?; printf >&2 'ERROR: Failed to obtain home directory for %s.\n' "$pod"; continue; }
-    [ -n "$homeDirspec" ] || { status=$?; printf >&2 'ERROR: Obtained no home directory for %s.\n' "$pod"; continue; }
-
-    kubectl cp ~/Unixhome "${pod}:${homeDirspec%/}/" "${containerArgs[@]}" "${kubectlArgsWithoutPod[@]}" || { status=$?; printf >&2 'ERROR: Could not copy Unixhome into the container in %s.\n' "$pod"; continue; }
-
-    kubectl exec "$pod" "${containerArgs[@]}" "${kubectlArgsWithoutPod[@]}" -- "${homeDirspec%/}/Unixhome/bin/ingo/syncUnixhome-core/bin/setupUnixhome" "${setupUnixhomeArgs[@]}" &&
-	printf 'Successfully set up Unixhome in %s under %s.\n' "$pod" "${homeDirspec%/}" ||
-	{ status=$?; printf >&2 'ERROR: Setup of Unixhome failed in %s.\n' "$pod"; }
-done
-exit $status
