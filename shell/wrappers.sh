@@ -13,6 +13,8 @@ kubectl()
 	eval 'kubectl ${KUBECTL_DEFAULT_COMMAND:-p}' "${pager:+|}" '"${pager[@]}"' "${pager:+; $returnKubectlStatus}"
     elif type ${BASH_VERSION:+-t} "$kubectlAlias" >/dev/null 2>&1; then
 	shift
+	[ "$kubectlAlias" = kubectl-bash ] && pager=()	# Paging would interfere with the interactive REPL; turn it off.
+
 	eval $kubectlAlias '"$@"' "${pager:+|}" '"${pager[@]}"' "${pager:+; $returnKubectlStatus}"
     else
 	eval 'command kubectl "$@"' "${pager:+|}" '"${pager[@]}"' "${pager:+; $returnKubectlStatus}"
