@@ -18,6 +18,7 @@ kubectl()
 	eval $kubectlAlias '"$@"' "${pager:+|}" '"${pager[@]}"' "${pager:+; $returnKubectlStatus}"
     else
 	contains logs "$@" && contains -f "$@" && pager=()  # Paging would interfere with log following; turn it off.
+	contains edit "$@" && pager=()  # Paging would interfere with interactive editing; turn it off.
 
 	eval 'command kubectl "$@"' "${pager:+|}" '"${pager[@]}"' "${pager:+; $returnKubectlStatus}"
     fi
