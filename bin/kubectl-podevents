@@ -1,0 +1,29 @@
+#!/bin/bash
+# Source: https://stackoverflow.com/a/51931477/813602
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+Get the events for PODs [matching EXPR].
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[KUBECTL-ARGS] [-- EXPR] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+typeset -a filterArgs=()
+if [ $# -ge 2 ] && [ "${@:(-2):1}" = -- ]; then
+    filterArgs=("${@:(-2):1}" "${!#}")
+    set -- "${@:1:$(($#-2))}"
+fi
+
+readarray -t pods < <(kubectl-podnames "$@" "${filterArgs[@]}")
+
+status=
+for pod in "${pods[@]}"
+do
+    kubectl get event "$@" --field-selector "involvedObject.name=${pod}" 2>/dev/null && : ${status:=0} || status=$?
+done
+exit ${status:-1}
