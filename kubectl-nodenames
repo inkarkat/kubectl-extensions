@@ -1,0 +1,12 @@
+#!/bin/bash
+
+getAllNodeNames()
+{
+    kubectl get nodes "$@" -o go-template --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}'
+}
+
+if [ $# -eq 0 ]; then
+    getAllNodeNames
+else
+    getAllNodeNames | grep "$@"
+fi
