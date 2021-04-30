@@ -38,6 +38,11 @@ bytesToUnits memory.available_in_bytes "$memory_available_in_bytes"
 
 
 [ "$HOSTNAME" ] || exit
+readarray -t currentHostname < <(kubectl-nodenames --fixed-strings -- "$HOSTNAME")
+[ ${#currentHostname[@]} -eq 1 ] || \
+    readarray -t currentHostname < <(kubectl-nodenames --fixed-strings -- "$(hostname --long)")
+[ ${#currentHostname[@]} -eq 1 ] || exit
+
 convertToBytes()
 {
     local value="$(< /dev/stdin)"
@@ -49,9 +54,9 @@ convertToBytes()
 	*)	printf %s "$value";;
     esac
 }
-allocatable_memory_in_bytes="$(kubectl get node "$@" -o json "$HOSTNAME" | jq -r '.status.allocatable.memory' | convertToBytes)"
+allocatable_memory_in_bytes="$(kubectl get node "$@" -o json "${currentHostname[0]}" | jq -r '.status.allocatable.memory' | convertToBytes)"
 
-used_memory_in_bytes=$(kubectl top node "$@" "$HOSTNAME" | awk 'END { print $4 }' | convertToBytes)
+used_memory_in_bytes=$(kubectl top node "$@" "${currentHostname[0]}" | awk 'END { print $4 }' | convertToBytes)
 
 echo
 bytesToUnits allocatable_memory "$allocatable_memory_in_bytes"
