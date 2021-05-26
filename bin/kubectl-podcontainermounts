@@ -1,0 +1,44 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+List the mounts of each container.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[KUBECTL-ARGS ...] [POD-NAME ...] [-- POD-PATTERN|' -c CONTAINER-PATTERN'] [-?|-h|--help]"
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+
+typeset -a emptyEnvFilter=(sed
+    -e '/^  [^ ]\+/{ N; /\n$/d }'
+    # Also suppress the final empty line. Note: The filter has to come last so
+    # that the previous filters can still indiscriminately use an empty line as
+    # the block separator without a special case of the last line.
+    -e '${ /^$/d }'
+)
+
+typeset -a filter=()
+if [ $# -ge 2 ] && [ "${@:(-2):1}" = -- ]; then
+    filter=(sed -ne "/^  [^ ]*${!#}/,/^$/p")
+    set -- "${@:1:$(($#-2))}"
+fi
+
+: ${KUBECTL_IGNORE_CONTAINERNAMES=kubernetes-vault-renew}
+typeset -a containerFilter=()
+if [ "$KUBECTL_IGNORE_CONTAINERNAMES" ]; then
+    ignoredContainerBranches="${KUBECTL_IGNORE_CONTAINERNAMES// /\\|}"
+    containerFilter=(sed -e "/^  [^ ]\\+ -c \\(${ignoredContainerBranches}\\)\$/,/^$/d")
+fi
+
+getAllPodContainerEnvironments()
+{
+    local -r SELECTOR='{{$podName := .metadata.name}}{{range .spec.containers}}  {{$podName}} -c {{.name}}{{"\n"}}{{range .volumeMounts}}{{.mountPath}} <- {{.name}}{{if .subPath}}:{{.subPath}}{{end}}{{"\n"}}{{end}}{{"\n"}}{{end}}'
+    kubectl get pods "$@" -o go-template --template "{{if .items}}{{range .items}}{{if not .status.reason}}${SELECTOR}{{end}}{{end}}{{else}}${SELECTOR}{{end}}"
+}
+
+eval 'getAllPodContainerEnvironments "$@"' "${filter:+|}" '"${filter[@]}"' "${containerFilter:+|}" '"${containerFilter[@]}"' "${emptyEnvFilter:+|}" '"${emptyEnvFilter[@]}"'
