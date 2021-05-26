@@ -57,7 +57,7 @@ fi
 
 
 typeset -a podFilter=(grep -e "^[^ ]*$podPattern"); shift
-: ${KUBECTL_IGNORE_CONTAINERNAMES=kubernetes-vault-renew}
+: ${KUBECTL_IGNORE_CONTAINERNAMES='\(kubernetes-\)\?vault-renew'}
 typeset -a containerFilter=()
 if [ "$container" ]; then
     containerFilter=(sed -e "s#\\( -c [^ ]\\+ [^ ]\\+\\)*\\( -c ${container} [^ ]\\+\\)\\( -c [^ ]\\+ [^ ]\\+\\)*\$#\\2#")

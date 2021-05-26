@@ -20,7 +20,7 @@ if [ $# -ge 2 ] && [ "${@:(-2):1}" = -- ]; then
     set -- "${@:1:$(($#-2))}"
 fi
 
-: ${KUBECTL_IGNORE_CONTAINERNAMES=kubernetes-vault-renew}
+: ${KUBECTL_IGNORE_CONTAINERNAMES='\(kubernetes-\)\?vault-renew'}
 typeset -a containerFilter=()
 if [ "$KUBECTL_IGNORE_CONTAINERNAMES" ]; then
     ignoredContainerBranches="${KUBECTL_IGNORE_CONTAINERNAMES// /\\|}"
