@@ -37,7 +37,7 @@ fi
 
 getAllPodContainerEnvironments()
 {
-    local -r SELECTOR='{{$podName := .metadata.name}}{{range .spec.containers}}  {{$podName}} -c {{.name}}{{"\n"}}{{range .env}}{{.name}}={{.value}}{{"\n"}}{{end}}{{"\n"}}{{end}}'
+    local -r SELECTOR='{{$podName := .metadata.name}}{{range .spec.containers}}  {{$podName}} -c {{.name}}{{"\n"}}{{range .env}}{{.name}}{{if .valueFrom}} -> .{{.valueFrom.fieldRef.fieldPath}}{{else}}={{.value}}{{end}}{{"\n"}}{{end}}{{"\n"}}{{end}}'
     kubectl get pods "$@" -o go-template --template "{{if .items}}{{range .items}}{{if not .status.reason}}${SELECTOR}{{end}}{{end}}{{else}}${SELECTOR}{{end}}"
 }
 
