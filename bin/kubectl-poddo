@@ -1,5 +1,4 @@
 #!/bin/bash
-set -o noglob
 shopt -qs extglob
 
 : ${KUBECTL_PODDO_POD_MARKER:='{}'}
@@ -51,8 +50,7 @@ if [ ${#commands[@]} -eq 0 ]; then
 fi >&2
 
 
-IFS=$'\n'
-typeset -a pods=($(kubectl-getg --no-headers=true "${kubectlArgs[@]}" | awk '{ print $1 }'))
+readarray -t pods < <(kubectl-getg --no-headers=true "${kubectlArgs[@]}" | awk '{ print $1 }')
 [ ${#pods[@]} -gt 0 ] || exit 1
 
 typeset -a kubectlArgsWithoutPod=()
