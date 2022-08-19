@@ -49,7 +49,7 @@ if [ "$lastArg" = '--' ]; then
     kubectl-get "${@:1:$(($#-1))}" "${kcArgs[@]}" --sort-by='{.metadata.creationTimestamp}' | \
 	{
 	    if [ "$isHeader" ]; then
-		IFS=$'\n' read header; printf '%s\n' "$header"
+		IFS=$'\n' read -r header; printf '%s\n' "$header"
 	    fi
 	    tac | \
 	    # If there are resources aged less than 1d, show all of those, but
@@ -80,7 +80,7 @@ else
     kubectl-get "${@:1:$(($#-1))}" "${kcArgs[@]}" | \
 	{
 	    if [ "$isHeader" ]; then
-		IFS=$'\n' read header; printf '%s\n' "$header"
+		IFS=$'\n' read -r header; printf '%s\n' "$header"
 	    fi
 	    grep "$lastArg"; }
 fi

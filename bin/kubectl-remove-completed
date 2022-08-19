@@ -9,7 +9,7 @@ if [ ${#completedPods[@]} -eq 0 ]; then
 fi
 
 # Don't pass the optional "-- EXPR" filter.
-if [ $# -ge 2 ] && [ "${@:(-2):1}" = -- ]; then
+if [ $# -ge 2 ] && [ "${*:(-2):1}" = -- ]; then
     set -- "${@:1:$(($#-2))}"
 fi
 

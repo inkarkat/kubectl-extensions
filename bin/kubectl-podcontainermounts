@@ -23,7 +23,7 @@ typeset -a emptyEnvFilter=(sed
 )
 
 typeset -a filter=()
-if [ $# -ge 2 ] && [ "${@:(-2):1}" = -- ]; then
+if [ $# -ge 2 ] && [ "${*:(-2):1}" = -- ]; then
     filter=(sed -ne "/^  [^ ]*${!#}/,/^$/p")
     set -- "${@:1:$(($#-2))}"
 fi

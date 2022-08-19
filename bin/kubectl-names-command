@@ -5,7 +5,7 @@ set -o noglob
 typeset -a names=(${KUBECTL_NAMES:?})
 
 typeset -a filter=()
-if [ $# -ge 2 ] && [ "${@:(-2):1}" = -- ]; then
+if [ $# -ge 2 ] && [ "${*:(-2):1}" = -- ]; then
     filter=(grep -e "^[^ ]*${!#}")
     set -- "${@:1:$(($#-2))}"
 fi

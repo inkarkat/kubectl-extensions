@@ -14,7 +14,7 @@ case "$1" in
 esac
 
 typeset -a filterArgs=()
-if [ $# -ge 2 ] && [ "${@:(-2):1}" = -- ]; then
+if [ $# -ge 2 ] && [ "${*:(-2):1}" = -- ]; then
     filterArgs=("${@:(-2):1}" "${!#}")
     set -- "${@:1:$(($#-2))}"
 fi

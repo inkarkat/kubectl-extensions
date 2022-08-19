@@ -17,7 +17,7 @@ typeset -a singleResultFilter=()
 typeset -a finalFilter=(sed -e 's#\t#\n#g')
 
 filterContainer=
-if [ $# -ge 2 ] && [ "${@:(-2):1}" = '-c' ]; then
+if [ $# -ge 2 ] && [ "${*:(-2):1}" = '-c' ]; then
     filterContainer=${!#}
     set -- "${@:1:$(($#-2))}"
 
@@ -26,7 +26,7 @@ if [ $# -ge 2 ] && [ "${@:(-2):1}" = '-c' ]; then
 fi
 
 typeset -a podFilter=()
-if [ $# -ge 2 ] && [ "${@:(-2):1}" = -- ]; then
+if [ $# -ge 2 ] && [ "${*:(-2):1}" = -- ]; then
     podFilterExpr=${!#}
     podFilter=(grep -e "^[^ ]*$podFilterExpr")
     set -- "${@:1:$(($#-2))}"

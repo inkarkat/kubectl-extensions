@@ -18,7 +18,7 @@ if [ $# -eq 0 -o ! -e "$lastArg" ]; then
 fi
 
 let i=$#-1
-[ "${@[i]}" = '--' ] && let i-=1
+[ "${*[i]}" = '--' ] && let i-=1
 
 kubectl delete "${@:1:$i}" -f "$lastArg" &&
     "${EDITOR:-vi}" "$lastArg" &&
