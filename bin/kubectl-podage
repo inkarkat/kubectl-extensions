@@ -1,0 +1,28 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+List the PODs [matching EXPR] by age (descending, starting with oldest).
+HELPTEXT
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[KUBECTL-ARGS ...] [POD-NAME ...] [-- POD-PATTERN] [-?|-h|--help]"
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+typeset -a filter=()
+if [ $# -ge 2 ] && [ "${*:(-2):1}" = -- ]; then
+    filter=(grep -e "^[^ ]*${!#}")
+    set -- "${@:1:$(($#-2))}"
+fi
+
+getPodsByAge()
+{
+    kubectl get pods --sort-by=.metadata.creationTimestamp "$@"
+}
+
+eval 'getPodsByAge "$@"' "${filter:+|}" '"${filter[@]}"'
