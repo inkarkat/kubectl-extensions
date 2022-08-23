@@ -6,6 +6,7 @@
 # extensions) doesn't do that on its own.
 kubectl()
 {
+    let _kubectl_use+=1
     typeset returnKubectlStatus=; [ "${BASH_VERSION:-}" ] && returnKubectlStatus='return ${PIPESTATUS[0]}'
     typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
     typeset kubectlAlias="kubectl-$1"
