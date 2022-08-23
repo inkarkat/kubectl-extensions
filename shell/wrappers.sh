@@ -1,5 +1,7 @@
 #!/bin/sh source-this-script
 
+[ "${BASH_VERSION:-}" -o "${KSH_VERSION:-}" ] || return
+
 # Allow definition of Kubectl aliases by putting an executable "kubectl-foo"
 # somewhere in the PATH. Add paging when outputting to the terminal, as kubectl
 # output can be long (e.g. kubectl describe pod), and the command (nor my
