@@ -1,3 +1,24 @@
 #!/bin/bash
 
-exec kubectl exec "$@"
+typeset -a kubectlArgs=()
+typeset -a kubectlNamespaceArgs=()
+typeset -a kubectlSelectorArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--namespace|-n)	kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
+	--selector|-l)	kubectlSelectorArgs+=("$1" "$2"); shift; shift;;
+	--)		kubectlArgs+=("$1"); shift; break;;
+	*)		kubectlArgs+=("$1"); shift;;
+    esac
+done
+if [ ${#kubectlSelectorArgs[@]} -gt 0 ]; then
+    readarray -t pods < <(kubectl "${kubectlNamespaceArgs[@]}" "${kubectlSelectorArgs[@]}" get pods -o go-template --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}')
+    case ${#pods[@]} in
+	0)  printf >&2 'ERROR: No Pods matching %s found.\n' "${kubectlSelectorArgs[*]}"; exit 1;;
+	1)  kubectlArgs=("${pods[0]}" "${kubectlArgs[@]}");;
+	*)  printf >&2 'ERROR: %d Pods match %s.\n' "${#pods[@]}" "${kubectlSelectorArgs[*]}"; exit 1;;
+    esac
+fi
+
+exec kubectl "${kubectlNamespaceArgs[@]}" exec "${kubectlArgs[@]}" "$@"
