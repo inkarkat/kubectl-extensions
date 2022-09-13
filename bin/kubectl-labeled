@@ -1,0 +1,46 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Execute KUBE-COMMAND with a label selector (for a label derived from the
+NAMESPACE via KUBECTL_LABELED_NAMESPACE) matching LABEL-VALUE.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'LABEL-VALUE KUBE-COMMAND -n|--namespace NAMESPACE [...] [-?|-h|--help]'
+}
+
+labelValue=
+namespace=
+typeset -a kubectlArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--namespace|-n)	kubectlArgs+=("$1" "$2"); namespace="$2"; shift; shift;;
+	--)		kubectlArgs+=("$1"); shift; break;;
+	*)		if [ -z "$labelValue" ]; then
+			    labelValue="$1"
+			else
+			    kubectlArgs+=("$1")
+			fi; shift
+			;;
+    esac
+done
+if [ -z "$namespace" ]; then
+    echo 'ERROR: No namespace passed.'
+    echo
+    printUsage "$0"
+    exit 2
+elif [ -z "$labelValue" ]; then
+    echo 'ERROR: No LABEL-VALUE passed.'
+    echo
+    printUsage "$0"
+    exit 2
+elif labelVar="KUBECTL_LABELED_${namespace^^}" && eval labelName="\$$labelVar" && [ -z "$labelName" ]; then
+    printf "ERROR: No label name configured for namespace '%s' in %s.\\n" "$namespace" "$labelVar"
+    exit 3
+fi >&2
+
+selector="$labelName == $labelValue"
+exec kubectl --selector "$selector" "${kubectlArgs[@]}" "$@"
