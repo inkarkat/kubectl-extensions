@@ -2,11 +2,7 @@
 
 # kc			kubectl
 # kca			kubectl --all-namespaces
-# kcc			kubectl --namespace core
-# kc1			kubectl --namespace opsbridge1
-# kc1-set-ns, kc1-get-ns
-# kc2			kubectl --namespace opsbridge2
-# kc2-set-ns, kc2-get-ns
+# kcr			kubectl --namespace reload
 # kco			kubectl --namespace $(kubectl-ns opsbridge-*)
 # kco-set-ns, kco-get-ns
 # kci			kubectl --namespace ingo
@@ -45,12 +41,12 @@ kca()
 
     kubectl "${subCommand[@]}" --all-namespaces "$@"
 }
-kcc()
+kcr()
 {
-    typeset -r kccAlias="kcc-$1"
-    if type ${BASH_VERSION:+-t} "$kccAlias" >/dev/null 2>&1; then
+    typeset -r kcrAlias="kcr-$1"
+    if type ${BASH_VERSION:+-t} "$kcrAlias" >/dev/null 2>&1; then
 	shift
-	eval $kccAlias '"$@"'
+	eval $kcrAlias '"$@"'
 	return
     fi
 
@@ -62,45 +58,7 @@ kcc()
 	shift
     done
 
-    kubectl "${subCommand[@]}" --namespace core "$@"
-}
-kc1()
-{
-    typeset -r kc1Alias="kc1-$1"
-    if type ${BASH_VERSION:+-t} "$kc1Alias" >/dev/null 2>&1; then
-	shift
-	eval $kc1Alias '"$@"'
-	return
-    fi
-
-    [ $# -eq 0 ] && set -- "${KUBECTL_DEFAULT_COMMAND:-p}"
-    typeset -a subCommand=()
-    while [ "$1" ] && [ "${1:0:1}" != '-' ]
-    do
-	subCommand+=("$1")
-	shift
-    done
-
-    kubectl "${subCommand[@]}" --namespace "${KC1_NAMESPACE:-opsbridge1}" "$@"
-}
-kc2()
-{
-    typeset -r kc2Alias="kc2-$1"
-    if type ${BASH_VERSION:+-t} "$kc2Alias" >/dev/null 2>&1; then
-	shift
-	eval $kc2Alias '"$@"'
-	return
-    fi
-
-    [ $# -eq 0 ] && set -- "${KUBECTL_DEFAULT_COMMAND:-p}"
-    typeset -a subCommand=()
-    while [ "$1" ] && [ "${1:0:1}" != '-' ]
-    do
-	subCommand+=("$1")
-	shift
-    done
-
-    kubectl "${subCommand[@]}" --namespace "${KC2_NAMESPACE:-opsbridge2}" "$@"
+    kubectl "${subCommand[@]}" --namespace reload "$@"
 }
 kco()
 {
@@ -151,13 +109,9 @@ kci()
 
     kubectl "${subCommand[@]}" --namespace "${KCI_NAMESPACE:-ingo}" "$@"
 }
-alias kc1-set-ns='eval "$(kc-set-ns KC1_NAMESPACE)"'
-alias kc2-set-ns='eval "$(kc-set-ns KC2_NAMESPACE)"'
 alias kco-set-ns='eval "$(kc-set-ns KCO_NAMESPACE)"'
 alias kci-set-ns='eval "$(kc-set-ns KCI_NAMESPACE)"'
 
-alias kc1-get-ns='echo "kc1 is using namespace ${KC1_NAMESPACE:-opsbridge1}"'
-alias kc2-get-ns='echo "kc2 is using namespace ${KC1_NAMESPACE:-opsbridge2}"'
 alias kco-get-ns='echo "kco is using namespace ${KCO_NAMESPACE:-^opsbridge-}"'
 alias kci-get-ns='echo "kci is using namespace ${KCI_NAMESPACE:-ingo}"'
 
@@ -211,12 +165,8 @@ complete -o default -F _kc kc
 
 _kca() { typeset -a kubectlVariant=(kca --all-namespaces); _kubectlVariantWrapper "$@"; }
 complete -o default -F _kca kca
-_kcc() { typeset -a kubectlVariant=(kcc -n core); _kubectlVariantWrapper "$@"; }
-complete -o default -F _kcc kcc
-_kc1() { typeset -a kubectlVariant=(kc1 -n "${KC1_NAMESPACE:-opsbridge1}"); _kubectlVariantWrapper "$@"; }
-complete -o default -F _kc1 kc1
-_kc2() { typeset -a kubectlVariant=(kc2 -n "${KC2_NAMESPACE:-opsbridge2}"); _kubectlVariantWrapper "$@"; }
-complete -o default -F _kc2 kc2
+_kcr() { typeset -a kubectlVariant=(kcr -n reload); _kubectlVariantWrapper "$@"; }
+complete -o default -F _kcr kcr
 _kco() { typeset -a kubectlVariant=(kco -n "$(kubectl-ns "${KCO_NAMESPACE:-^opsbridge-}")"); _kubectlVariantWrapper "$@"; }
 complete -o default -F _kco kco
 _kci() { typeset -a kubectlVariant=(kci -n "${KCI_NAMESPACE:-ingo}"); _kubectlVariantWrapper "$@"; }
