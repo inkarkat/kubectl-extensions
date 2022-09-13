@@ -37,13 +37,13 @@ elif [ ! -d "$UNIXHOME" ]; then
 fi
 
 if [ "$isLaunch" ]; then
-    homeDirspec="$(kubectl exec "$pod" "${kubectlArgs[@]}" -- bash -c 'echo $HOME')" || { status=$?; printf >&2 'ERROR: Failed to obtain home directory for %s.\n' "$pod"; exit $status; }
+    homeDirspec="$(kubectl-wrapper exec "$pod" "${kubectlArgs[@]}" -- bash -c 'echo $HOME')" || { status=$?; printf >&2 'ERROR: Failed to obtain home directory for %s.\n' "$pod"; exit $status; }
     [ -n "$homeDirspec" ] || { status=$?; printf >&2 'ERROR: Obtained no home directory for %s.\n' "$pod"; exit $status; }
 
     [ -t 1 ] && printf 'Copying Unixhome to %s...\r' "$pod"
     kubectl cp "$UNIXHOME" "${pod}:${homeDirspec%/}/" "${kubectlArgs[@]}" || { status=$?; printf >&2 'ERROR: Could not copy Unixhome into the container in %s.\n' "$pod"; exit $status; }
 
-    if kubectl exec "$pod" "${kubectlArgs[@]}" -- "${homeDirspec%/}/Unixhome/bin/ingo/syncUnixhome-core/bin/setupUnixhome" "${setupUnixhomeArgs[@]}"; then
+    if kubectl-wrapper exec "$pod" "${kubectlArgs[@]}" -- "${homeDirspec%/}/Unixhome/bin/ingo/syncUnixhome-core/bin/setupUnixhome" "${setupUnixhomeArgs[@]}"; then
 	printf 'Successfully set up Unixhome in %s under %s.\n' "$pod" "${homeDirspec%/}"
     else
 	status=$?; printf >&2 'ERROR: Setup of Unixhome failed in %s.\n' "$pod"; exit $status

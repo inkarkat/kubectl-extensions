@@ -12,4 +12,4 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
-exec kubectl exec -it "$@" -- bash
+exec kubectl-wrapper exec -it "$@" -- bash
