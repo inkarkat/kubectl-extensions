@@ -43,4 +43,4 @@ elif labelVar="KUBECTL_LABELED_${namespace^^}" && eval labelName="\$$labelVar" &
 fi >&2
 
 selector="$labelName == $labelValue"
-exec kubectl --selector "$selector" "${kubectlArgs[@]}" "$@"
+exec kubectl-wrapper --selector "$selector" "${kubectlArgs[@]}" "$@"

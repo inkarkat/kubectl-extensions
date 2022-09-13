@@ -1,0 +1,24 @@
+#!/bin/bash
+
+typeset -a kubectlArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--all-namespaces|-A)
+			kubectlArgs+=("$1"); shift;;
+	--namespace|-n|--selector|-l|--cluster|--context|--template)
+			kubectlArgs+=("$1" "$2"); shift; shift;;
+	--)		kubectlArgs+=("$1"); shift; break;;
+	*)		break;;
+    esac
+done
+kubectlAlias="kubectl-$1"
+
+if [ ${#kubectlArgs[@]} -eq 0 -a $# -eq 0 ]; then
+    kubectl ${KUBECTL_DEFAULT_COMMAND:-p}
+elif type -t "$kubectlAlias" >/dev/null 2>&1; then
+    shift
+    $kubectlAlias "${kubectlArgs[@]}" "$@"
+else
+    command kubectl "${kubectlArgs[@]}" "$@"
+fi
