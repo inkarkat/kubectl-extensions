@@ -4,10 +4,7 @@
 # kca			kubectl --all-namespaces
 # kcr			kubectl --namespace reload
 # kco			kubectl --namespace $(kubectl-ns opsbridge-*)
-# kco-set-ns, kco-get-ns
 # kci			kubectl --namespace ingo
-# kci-set-ns, kci-get-ns
-# kc-rehash-ns		After you've done kc*-set-ns in a different shell.
 kc()
 {
     typeset -r kcAlias="kubectl-$1"
@@ -109,13 +106,6 @@ kci()
 
     kubectl "${subCommand[@]}" --namespace "${KCI_NAMESPACE:-ingo}" "$@"
 }
-alias kco-set-ns='eval "$(kc-set-ns KCO_NAMESPACE)"'
-alias kci-set-ns='eval "$(kc-set-ns KCI_NAMESPACE)"'
-
-alias kco-get-ns='echo "kco is using namespace ${KCO_NAMESPACE:-^opsbridge-}"'
-alias kci-get-ns='echo "kci is using namespace ${KCI_NAMESPACE:-ingo}"'
-
-alias kc-rehash-ns='. ~/.local/autosource/kubectl-opsbridge-namespaces.sh'
 
 
 # Completion for my kubectl extensions.
