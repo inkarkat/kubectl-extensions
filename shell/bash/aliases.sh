@@ -10,6 +10,7 @@ kc()
     typeset -r kcAlias="kubectl-$1"
     if type ${BASH_VERSION:+-t} "$kcAlias" >/dev/null 2>&1; then
 	shift
+	let _kubectl_use+=1
 	eval $kcAlias '"$@"'
 	return
     fi
@@ -24,6 +25,7 @@ kca()
     typeset -r kcaAlias="kca-$1"
     if type ${BASH_VERSION:+-t} "$kcaAlias" >/dev/null 2>&1; then
 	shift
+	let _kubectl_use+=1
 	eval $kcaAlias '"$@"'
 	return
     fi
@@ -43,6 +45,7 @@ kcr()
     typeset -r kcrAlias="kcr-$1"
     if type ${BASH_VERSION:+-t} "$kcrAlias" >/dev/null 2>&1; then
 	shift
+	let _kubectl_use+=1
 	eval $kcrAlias '"$@"'
 	return
     fi
@@ -62,6 +65,7 @@ kco()
     typeset -r kcoAlias="kco-$1"
     if type ${BASH_VERSION:+-t} "$kcoAlias" >/dev/null 2>&1; then
 	shift
+	let _kubectl_use+=1
 	eval $kcoAlias '"$@"'
 	return
     fi
@@ -92,6 +96,7 @@ kci()
     typeset -r kciAlias="kci-$1"
     if type ${BASH_VERSION:+-t} "$kciAlias" >/dev/null 2>&1; then
 	shift
+	let _kubectl_use+=1
 	eval $kciAlias '"$@"'
 	return
     fi
