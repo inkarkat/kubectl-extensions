@@ -1,24 +1,11 @@
 #!/bin/bash
 
-typeset -a kubectlArgs=()
-while [ $# -ne 0 ]
-do
-    case "$1" in
-	--all-namespaces|-A)
-			kubectlArgs+=("$1"); shift;;
-	--namespace|-n|--selector|-l|--cluster|--context|--template)
-			kubectlArgs+=("$1" "$2"); shift; shift;;
-	--)		kubectlArgs+=("$1"); shift; break;;
-	*)		break;;
-    esac
-done
-kubectlAlias="kubectl-$1"
+# Delegate to our shell function wrapper, as this implements paging and special
+# cases there; this is too much to duplicate here.
 
-if [ ${#kubectlArgs[@]} -eq 0 -a $# -eq 0 ]; then
-    kubectl ${KUBECTL_DEFAULT_COMMAND:-p}
-elif type -t "$kubectlAlias" >/dev/null 2>&1; then
-    shift
-    $kubectlAlias "${kubectlArgs[@]}" "$@"
-else
-    command kubectl "${kubectlArgs[@]}" "$@"
-fi
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+readonly projectDir="${scriptDir}/.."
+source "${projectDir}/shell/wrappers.sh"
+
+kubectl "$@"
