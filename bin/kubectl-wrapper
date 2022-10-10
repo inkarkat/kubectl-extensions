@@ -7,6 +7,8 @@ set -o pipefail
 # extensions) doesn't do that on its own.
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+[ -n "$_kubectl_wrapper" ] && pager=()
+export _kubectl_wrapper=true
 
 typeset -a kubectlArgs=()
 while [ $# -ne 0 ]
@@ -20,7 +22,7 @@ do
 	*)		break;;
     esac
 done
-set -x
+
 typeset kubectlAlias="kubectl-$1"
 if [ ${#kubectlArgs[@]} -eq 0 -a $# -eq 0 ]; then
     eval 'command kubectl ${KUBECTL_DEFAULT_COMMAND:-p}' "${pager:+|}" '"${pager[@]}"'
