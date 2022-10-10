@@ -1,11 +1,40 @@
 #!/bin/bash
+set -o pipefail
 
-# Delegate to our shell function wrapper, as this implements paging and special
-# cases there; this is too much to duplicate here.
+# Allow definition of Kubectl aliases by putting an executable "kubectl-foo"
+# somewhere in the PATH. Add paging when outputting to the terminal, as kubectl
+# output can be long (e.g. kubectl describe pod), and the command (nor my
+# extensions) doesn't do that on its own.
 
-readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
-[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
-readonly projectDir="${scriptDir}/.."
-source "${projectDir}/shell/wrappers.sh"
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 
-kubectl "$@"
+typeset -a kubectlArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--all-namespaces|-A)
+			kubectlArgs+=("$1"); shift;;
+	--namespace|-n|--selector|-l|--cluster|--context|--template)
+			kubectlArgs+=("$1" "$2"); shift; shift;;
+	--)		break;;
+	*)		break;;
+    esac
+done
+set -x
+typeset kubectlAlias="kubectl-$1"
+if [ ${#kubectlArgs[@]} -eq 0 -a $# -eq 0 ]; then
+    eval 'command kubectl ${KUBECTL_DEFAULT_COMMAND:-p}' "${pager:+|}" '"${pager[@]}"'
+elif type -t "$kubectlAlias" >/dev/null; then
+    shift
+    [ "$kubectlAlias" = kubectl-bash ] && pager=()	# Paging would interfere with the interactive REPL; turn it off.
+    [ "$kubectlAlias" = kubectl-ef ] && pager=()	# Paging would interfere with watching for changes in requested objects; turn it off.
+    [ "$kubectlAlias" = kubectl-get ] && containsGlob '-w|--watch|--watch-only' "$@" && pager=()  # Paging would interfere with watching for changes in requested objects; turn it off.
+
+    eval $kubectlAlias '"${kubectlArgs[@]}" "$@"' "${pager:+|}" '"${pager[@]}"'
+else
+    contains logs "$@" && contains -f "$@" && pager=()  # Paging would interfere with log following; turn it off.
+    contains get "$@" && containsGlob '-w|--watch|--watch-only' "$@" && pager=()  # Paging would interfere with watching for changes in requested objects; turn it off.
+    contains edit "$@" && pager=()  # Paging would interfere with interactive editing; turn it off.
+
+    eval 'command kubectl "${kubectlArgs[@]}" "$@"' "${pager:+|}" '"${pager[@]}"'
+fi
