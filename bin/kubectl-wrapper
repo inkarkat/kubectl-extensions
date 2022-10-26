@@ -31,6 +31,7 @@ elif type -t "$kubectlAlias" >/dev/null; then
     [ "$kubectlAlias" = kubectl-bash ] && pager=()	# Paging would interfere with the interactive REPL; turn it off.
     [ "$kubectlAlias" = kubectl-ef ] && pager=()	# Paging would interfere with watching for changes in requested objects; turn it off.
     [ "$kubectlAlias" = kubectl-get ] && containsGlob '-w|--watch|--watch-only' "$@" && pager=()  # Paging would interfere with watching for changes in requested objects; turn it off.
+    [ "$kubectlAlias" = kubectl-logs ] && contains -f "$@" && pager=()  # Paging would interfere with log following; turn it off.
 
     eval $kubectlAlias '"${kubectlArgs[@]}" "$@"' "${pager:+|}" '"${pager[@]}"'
 else
