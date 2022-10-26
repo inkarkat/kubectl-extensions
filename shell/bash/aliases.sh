@@ -22,6 +22,8 @@ kc()
 
 kca()
 {
+    typeset KUBECTL_DEFAULT_CONTAINER="${KCA_DEFAULT_CONTAINER}"; export KUBECTL_DEFAULT_CONTAINER
+
     typeset -r kcaAlias="kca-$1"
     if type ${BASH_VERSION:+-t} "$kcaAlias" >/dev/null 2>&1; then
 	shift
@@ -42,6 +44,8 @@ kca()
 }
 kcr()
 {
+    typeset KUBECTL_DEFAULT_CONTAINER="${KCR_DEFAULT_CONTAINER-mc-server}"; export KUBECTL_DEFAULT_CONTAINER
+
     typeset -r kcrAlias="kcr-$1"
     if type ${BASH_VERSION:+-t} "$kcrAlias" >/dev/null 2>&1; then
 	shift
@@ -62,6 +66,8 @@ kcr()
 }
 kco()
 {
+    typeset KUBECTL_DEFAULT_CONTAINER="${KCO_DEFAULT_CONTAINER}"; export KUBECTL_DEFAULT_CONTAINER
+
     typeset -r kcoAlias="kco-$1"
     if type ${BASH_VERSION:+-t} "$kcoAlias" >/dev/null 2>&1; then
 	shift
@@ -93,6 +99,8 @@ kco()
 }
 kci()
 {
+    typeset KUBECTL_DEFAULT_CONTAINER="${KCI_DEFAULT_CONTAINER}"; export KUBECTL_DEFAULT_CONTAINER
+
     typeset -r kciAlias="kci-$1"
     if type ${BASH_VERSION:+-t} "$kciAlias" >/dev/null 2>&1; then
 	shift
