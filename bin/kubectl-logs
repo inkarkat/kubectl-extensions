@@ -1,0 +1,19 @@
+#!/bin/bash
+
+typeset -a kubectlArgs=()
+typeset -a kubectlNamespaceArgs=()
+typeset -a kubectlContainerArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--namespace|-n)	kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
+	--container|-c)	kubectlContainerArgs+=("$1" "$2"); shift; shift;;
+	--container=*)	kubectlContainerArgs+=("$1"); shift;;
+	--)		kubectlArgs+=("$1"); shift; break;;
+	*)		kubectlArgs+=("$1"); shift;;
+    esac
+done
+# Default container unless given.
+[ -z "$KUBECTL_DEFAULT_CONTAINER" ] || [ ${#kubectlContainerArgs[@]} -gt 0 ] || kubectlContainerArgs=(--container "$KUBECTL_DEFAULT_CONTAINER")
+
+exec kubectl "${kubectlNamespaceArgs[@]}" logs "${kubectlContainerArgs[@]}" "${kubectlArgs[@]}" "$@"

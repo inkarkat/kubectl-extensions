@@ -3,11 +3,14 @@
 typeset -a kubectlArgs=()
 typeset -a kubectlNamespaceArgs=()
 typeset -a kubectlSelectorArgs=()
+typeset -a kubectlContainerArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--namespace|-n)	kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
 	--selector|-l)	kubectlSelectorArgs+=("$1" "$2"); shift; shift;;
+	--container|-c)	kubectlContainerArgs+=("$1" "$2"); shift; shift;;
+	--container=*)	kubectlContainerArgs+=("$1"); shift;;
 	--)		kubectlArgs+=("$1"); shift; break;;
 	*)		kubectlArgs+=("$1"); shift;;
     esac
@@ -21,4 +24,7 @@ if [ ${#kubectlSelectorArgs[@]} -gt 0 ]; then
     esac
 fi
 
-exec kubectl "${kubectlNamespaceArgs[@]}" exec "${kubectlArgs[@]}" "$@"
+# Default container unless given.
+[ -z "$KUBECTL_DEFAULT_CONTAINER" ] || [ ${#kubectlContainerArgs[@]} -gt 0 ] || kubectlContainerArgs=(--container "$KUBECTL_DEFAULT_CONTAINER")
+
+exec kubectl "${kubectlNamespaceArgs[@]}" exec "${kubectlContainerArgs[@]}" "${kubectlArgs[@]}" "$@"
