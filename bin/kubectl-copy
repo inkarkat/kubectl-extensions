@@ -1,0 +1,102 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Copy all FILE(s) to/from DESTINATION in the passed POD(s) / Pod(s) matching SELECTOR.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--to|--from (-l|--selector SELECTOR|-p|--pod POD [-p ...]|--pods POD [...] ;) [-c|--container CONTAINER] [--] FILE [...] DESTINATION [-?|-h|--help]'
+}
+
+direction=
+typeset -a kubectlArgs=()
+typeset -a kubectlNamespaceArgs=()
+typeset -a kubectlContainerArgs=()
+typeset -a kubectlSelectorArgs=()
+typeset -a pods=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--to|--from)	direction="${1#--}"; shift;;
+	--pod|-p)	shift; pods+=("$1"); shift;;
+	--pods)		shift
+			while [ $# -gt 0 -a "$1" != ';' ]
+			do
+			    pods+=("$1")
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo 'ERROR: --pods must be concluded with ;!'; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			if [ ${#pods[@]} -eq 0 ]; then
+			    echo 'ERROR: --pods must be followed by at least one POD.'; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			;;
+
+	--namespace|-n)	kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
+	--container|-c)	kubectlContainerArgs+=("$1" "$2"); shift; shift;;
+	--container=*)	kubectlContainerArgs+=("$1"); shift;;
+	--selector|-l)	kubectlSelectorArgs+=("$1" "$2"); shift; shift;;
+	--selector=*)	kubectlSelectorArgs+=("$1"); shift;;
+
+	--)		shift; break;;
+	*)		break;;
+    esac
+done
+if [ -z "$direction" ]; then
+    echo 'ERROR: No --to|--from passed.'
+    echo
+    printUsage "$0"
+elif [ ${#kubectlSelectorArgs[@]} -eq 0 -a ${#pods[@]} -eq 0 ]; then
+    echo 'ERROR: No --selector or --pods POD [...] ; or --pod POD passed.'
+    echo
+    printUsage "$0"
+    exit 2
+elif [ $# -lt 2 ]; then
+    echo 'ERROR: Need FILE and DESTINATION.'
+    echo
+    printUsage "$0"
+    exit 2
+fi
+destination="${!#}"
+set -- "${@:1:$(($#-1))}"
+
+if [ ${#kubectlSelectorArgs[@]} -gt 0 ]; then
+    readarray -t pods < <(kubectl-podnames "${kubectlNamespaceArgs[@]}" "${kubectlSelectorArgs[@]}")
+    if [ ${#pods[@]} -eq 0 ]; then
+	printf >&2 'ERROR: No Pods matching %s found.\n' "${kubectlSelectorArgs[*]}"
+	exit 1
+    fi
+fi
+
+# Default container unless given.
+[ -z "$KUBECTL_DEFAULT_CONTAINER" ] || [ ${#kubectlContainerArgs[@]} -gt 0 ] || kubectlContainerArgs=(--container "$KUBECTL_DEFAULT_CONTAINER")
+
+
+status=0
+for pod in "${pods[@]}"
+do
+    destinationFilespec="$destination"
+    for sourceFilespec
+    do
+	case "$direction" in
+	    to)	    printf -v copyMessage "%s: Copied local '%s' to '%s'" "$pod" "$sourceFilespec" "$destination"
+		    destinationFilespec="${pod}:${destination}"
+		    ;;
+	    from)   printf -v copyMessage "%s: Copied remote '%s' to local '%s'" "$pod" "$sourceFilespec" "$destination"
+		    sourceFilespec="${pod}:${sourceFilespec}";;
+	    *)	    printf >&2 'ASSERT: Invalid direction: %s\n' "$direction"; exit 3;;
+	esac
+
+	# "kubectl cp" only supports exactly one source and destination file.
+	kubectl "${kubectlNamespaceArgs[@]}" cp "${kubectlContainerArgs[@]}" "$sourceFilespec" "$destinationFilespec" \
+	    && printf '%s\n' "$copyMessage" \
+	    || status=$?
+    done
+done
+exit $status
