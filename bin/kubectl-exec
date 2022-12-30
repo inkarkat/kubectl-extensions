@@ -16,7 +16,7 @@ do
     esac
 done
 if [ ${#kubectlSelectorArgs[@]} -gt 0 ]; then
-    readarray -t pods < <(kubectl "${kubectlNamespaceArgs[@]}" "${kubectlSelectorArgs[@]}" get pods -o go-template --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}')
+    readarray -t pods < <(kubectl-podnames "${kubectlNamespaceArgs[@]}" "${kubectlSelectorArgs[@]}")
     case ${#pods[@]} in
 	0)  printf >&2 'ERROR: No Pods matching %s found.\n' "${kubectlSelectorArgs[*]}"; exit 1;;
 	1)  kubectlArgs=("${pods[0]}" "${kubectlArgs[@]}");;
