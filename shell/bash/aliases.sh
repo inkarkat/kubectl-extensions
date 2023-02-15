@@ -2,8 +2,6 @@
 
 # kc			kubectl
 # kca			kubectl --all-namespaces
-# kcr			kubectl --namespace reload
-# kco			kubectl --namespace $(kubectl-ns opsbridge-*)
 # kci			kubectl --namespace ingo
 kc()
 {
@@ -41,61 +39,6 @@ kca()
     done
 
     kubectl "${subCommand[@]}" --all-namespaces "$@"
-}
-kcr()
-{
-    typeset KUBECTL_DEFAULT_CONTAINER="${KCR_DEFAULT_CONTAINER-mc-server}"; export KUBECTL_DEFAULT_CONTAINER
-
-    typeset -r kcrAlias="kcr-$1"
-    if type ${BASH_VERSION:+-t} "$kcrAlias" >/dev/null 2>&1; then
-	shift
-	let _kubectl_use+=1
-	eval $kcrAlias '"$@"'
-	return
-    fi
-
-    [ $# -eq 0 ] && set -- "${KUBECTL_DEFAULT_COMMAND:-p}"
-    typeset -a subCommand=()
-    while [ "$1" ] && [ "${1:0:1}" != '-' ]
-    do
-	subCommand+=("$1")
-	shift
-    done
-
-    kubectl "${subCommand[@]}" --namespace reload "$@"
-}
-kco()
-{
-    typeset KUBECTL_DEFAULT_CONTAINER="${KCO_DEFAULT_CONTAINER}"; export KUBECTL_DEFAULT_CONTAINER
-
-    typeset -r kcoAlias="kco-$1"
-    if type ${BASH_VERSION:+-t} "$kcoAlias" >/dev/null 2>&1; then
-	shift
-	let _kubectl_use+=1
-	eval $kcoAlias '"$@"'
-	return
-    fi
-
-    [ $# -eq 0 ] && set -- "${KUBECTL_DEFAULT_COMMAND:-p}"
-    typeset -a subCommand=()
-    while [ "$1" ] && [ "${1:0:1}" != '-' ]
-    do
-	subCommand+=("$1")
-	shift
-    done
-
-    if [ -n "$KCO_NAMESPACE" ]; then
-	typeset -a namespaces=("$KCO_NAMESPACE")
-    else
-	local IFS=$'\n'
-	typeset -a namespaces=($(kubectl-ns '^opsbridge-'))
-	case ${#namespaces[@]} in
-	    0)	echo >&2 "ERROR: No matching namespace found."; return 1;;
-	    1)	;;
-	    *)	local IFS=' '; printf >&2 'ERROR: Multiple namespaces match: %s\n' "${namespaces[*]}"; return 1;;
-	esac
-    fi
-    kubectl "${subCommand[@]}" --namespace "${namespaces[0]}" "$@"
 }
 kci()
 {
@@ -168,9 +111,5 @@ complete -o default -F _kc kc
 
 _kca() { typeset -a kubectlVariant=(kca --all-namespaces); _kubectlVariantWrapper "$@"; }
 complete -o default -F _kca kca
-_kcr() { typeset -a kubectlVariant=(kcr -n reload); _kubectlVariantWrapper "$@"; }
-complete -o default -F _kcr kcr
-_kco() { typeset -a kubectlVariant=(kco -n "$(kubectl-ns "${KCO_NAMESPACE:-^opsbridge-}")"); _kubectlVariantWrapper "$@"; }
-complete -o default -F _kco kco
 _kci() { typeset -a kubectlVariant=(kci -n "${KCI_NAMESPACE:-ingo}"); _kubectlVariantWrapper "$@"; }
 complete -o default -F _kci kci
