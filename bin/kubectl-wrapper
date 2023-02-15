@@ -24,6 +24,13 @@ do
     esac
 done
 
+pagerDisableCheck()
+{
+    containsGlob '?(filtered)logs' "$@" && contains -f "$@" && pager=()  # Paging would interfere with log following; turn it off.
+    contains get "$@" && containsGlob '-w|--watch|--watch-only' "$@" && pager=()  # Paging would interfere with watching for changes in requested objects; turn it off.
+    contains edit "$@" && pager=()  # Paging would interfere with interactive editing; turn it off.
+}
+
 typeset kubectlAlias="kubectl-$1"
 if [ ${#kubectlArgs[@]} -eq 0 -a $# -eq 0 ]; then
     eval 'command kubectl ${KUBECTL_DEFAULT_COMMAND:-p}' "${pager:+|}" '"${pager[@]}"'
@@ -33,12 +40,11 @@ elif type -t "$kubectlAlias" >/dev/null; then
     [ "$kubectlAlias" = kubectl-ef ] && pager=()	# Paging would interfere with watching for changes in requested objects; turn it off.
     [ "$kubectlAlias" = kubectl-get ] && containsGlob '-w|--watch|--watch-only' "$@" && pager=()  # Paging would interfere with watching for changes in requested objects; turn it off.
     [[ "$kubectlAlias" = kubectl-?(filtered)logs ]] && contains -f "$@" && pager=()  # Paging would interfere with log following; turn it off.
+    pagerDisableCheck "$@"
 
     eval $kubectlAlias '"${kubectlArgs[@]}" "$@"' "${pager:+|}" '"${pager[@]}"'
 else
-    containsGlob '?(filtered)logs' "$@" && contains -f "$@" && pager=()  # Paging would interfere with log following; turn it off.
-    contains get "$@" && containsGlob '-w|--watch|--watch-only' "$@" && pager=()  # Paging would interfere with watching for changes in requested objects; turn it off.
-    contains edit "$@" && pager=()  # Paging would interfere with interactive editing; turn it off.
+    pagerDisableCheck "$@"
 
     eval 'command kubectl "${kubectlArgs[@]}" "$@"' "${pager:+|}" '"${pager[@]}"'
 fi
