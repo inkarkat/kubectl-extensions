@@ -38,15 +38,15 @@ elif [ ${#jqArgs[@]} -eq 0 ]; then
 fi
 
 
-ORIGINAL=$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX.in" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$${RANDOM}.in")
-REPLACEMENT=$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX.out" 2>/dev/null || echo "${TEMP:-/tmp}/$(basename -- "$0").$$${RANDOM}.out")
+originalFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX.in" 2>/dev/null || echo "${TMPDIR:-/tmp}/$(basename -- "$0").$$${RANDOM}.in")"
+replacementFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX.out" 2>/dev/null || echo "${TMPDIR:-/tmp}/$(basename -- "$0").$$${RANDOM}.out")"
 cleanup()
 {
-    rm -f "$ORIGINAL" "$REPLACEMENT" 2>/dev/null
+    rm -f "$originalFilespec" "$replacementFilespec" 2>/dev/null
 }
 [ "$DEBUG" ] || trap 'cleanup' EXIT
 
 
-kubectl get "${kubectlGetArgs[@]}" "${kubectlOutputFormat[@]}" "$@" > "$ORIGINAL" || exit $?
-jq "${jqArgs[@]}" "$ORIGINAL" > "$REPLACEMENT" || exit $?
-kubectl replace "${kubectlReplaceArgs[@]}" -f "$REPLACEMENT"
+kubectl get "${kubectlGetArgs[@]}" "${kubectlOutputFormat[@]}" "$@" > "$originalFilespec" || exit $?
+jq "${jqArgs[@]}" "$originalFilespec" > "$replacementFilespec" || exit $?
+kubectl replace "${kubectlReplaceArgs[@]}" -f "$replacementFilespec"
