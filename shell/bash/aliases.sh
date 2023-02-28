@@ -5,16 +5,6 @@
 # kci			kubectl --namespace ingo
 kc()
 {
-    typeset -r kcAlias="kubectl-$1"
-    if type ${BASH_VERSION:+-t} "$kcAlias" >/dev/null 2>&1; then
-	shift
-	let _kubectl_use+=1
-	eval $kcAlias '"$@"'
-	return
-    fi
-
-    [ $# -eq 0 ] && set -- "${KUBECTL_DEFAULT_COMMAND:-p}"
-
     kubectl "$@"
 }
 
