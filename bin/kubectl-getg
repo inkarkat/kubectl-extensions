@@ -8,22 +8,27 @@ Grep for EXPR in list of resources.
 With --, list latest resources.
 Without arguments, list latest pods.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'TYPE [...] EXPR|-- [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[EXPR|--] [-?|-h|--help]'
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--unpiped] TYPE [...] EXPR|-- [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--unpiped] [EXPR|--] [-?|-h|--help]'
 }
 
 typeset -a args=()
 typeset -a kcArgs=()
 typeset -a kcHeaderArg=()
 isHeader=t
+isPiped=
 if ! [ -t 1 -o "$_kubectl_toterm" ]; then
     kcHeaderArg=(--no-headers=true)
     isHeader=
+    isPiped=t
 fi
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--unpiped)	shift; isPiped=;;
+
 	--all-namespaces)	kcArgs+=("$1"); shift;;
 	--namespace|-n|--cluster|--context|--template)	kcArgs+=("$1" "$2"); shift; shift;;
 	--output|-o)		kcArgs+=("$1" "$2")
@@ -32,9 +37,10 @@ do
 				    *)	isHeader=;;
 				esac
 				shift; shift
+				isPiped=
 				;;
 	--no-headers=true)	kcHeaderArg=("$1"); shift; isHeader=;;
-	--no-headers=*)		kcHeaderArg=("$1"); shift;;
+	--no-headers=false)	kcHeaderArg=("$1"); shift; isHeader=t;;
 	--)		break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		args+=("$1"); shift;;
@@ -42,24 +48,36 @@ do
 done
 set -- "${args[@]}" "$@"
 
+filter=
+if [ "$isPiped" ]; then
+    # DWIM: When piped into another command or captured, just print the first
+    # (identifier) column and default to just one line of output, so that it can
+    # be combined with other commands: $ kubectl exec $(kubectl getg FOO) -- uname
+    isHeader=
+    filter='head -n 1 | field 1'
+fi
+
 case $# in
     0) set -- pods --;;
     1) set -- pods "$1";;
 esac
-lastArg=${!#}
 
-if [ "$lastArg" = '--' ]; then
-    kubectl-get "${@:1:$(($#-1))}" "${kcHeaderArg[@]}" "${kcArgs[@]}" --sort-by='{.metadata.creationTimestamp}' | \
-	{
-	    if [ "$isHeader" ]; then
-		IFS=$'\n' read -r header; printf '%s\n' "$header"
-	    fi
-	    tac | \
-	    # If there are resources aged less than 1d, show all of those, but
-	    # not more. If all resources are at least one day old, show all
-	    # those with the same smallest number of days, but not the even
-	    # older ones.
-	    sed -e '
+getg()
+{
+    local lastArg="${!#}"
+
+    if [ "$lastArg" = '--' ]; then
+	kubectl-get "${@:1:$(($#-1))}" "${kcHeaderArg[@]}" "${kcArgs[@]}" --sort-by='{.metadata.creationTimestamp}' | \
+	    {
+		if [ "$isHeader" ]; then
+		    IFS=$'\n' read -r header; printf '%s\n' "$header"
+		fi
+		tac | \
+		# If there are resources aged less than 1d, show all of those, but
+		# not more. If all resources are at least one day old, show all
+		# those with the same smallest number of days, but not the even
+		# older ones.
+		sed -e '
 /[0-9]d$/{
     x
     /^$/{
@@ -78,12 +96,15 @@ N
 s/.*//
 b eatall
 ';
-	}
-else
-    kubectl-get "${@:1:$(($#-1))}" "${kcHeaderArg[@]}" "${kcArgs[@]}" | \
-	{
-	    if [ "$isHeader" ]; then
-		IFS=$'\n' read -r header; printf '%s\n' "$header"
-	    fi
-	    grep "$lastArg"; }
-fi
+	    }
+    else
+	kubectl-get "${@:1:$(($#-1))}" "${kcHeaderArg[@]}" "${kcArgs[@]}" | \
+	    {
+		if [ "$isHeader" ]; then
+		    IFS=$'\n' read -r header; printf '%s\n' "$header"
+		fi
+		grep "$lastArg"; }
+    fi
+}
+
+eval 'getg "$@"' "${filter:+|}$filter"
