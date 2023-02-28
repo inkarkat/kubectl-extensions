@@ -16,7 +16,7 @@ typeset -a args=()
 typeset -a kcArgs=()
 typeset -a kcHeaderArg=()
 isHeader=t
-if [ ! -t 1 ]; then
+if ! [ -t 1 -o "$_kubectl_toterm" ]; then
     kcHeaderArg=(--no-headers=true)
     isHeader=
 fi
