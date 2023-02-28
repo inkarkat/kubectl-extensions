@@ -14,9 +14,12 @@ HELPTEXT
 
 typeset -a args=()
 typeset -a kcArgs=()
+typeset -a kcHeaderArg=()
 isHeader=t
-kcHeaderArg=
-[ -t 1 ] || kcHeaderArg='--no-headers=true'
+if [ ! -t 1 ]; then
+    kcHeaderArg=(--no-headers=true)
+    isHeader=
+fi
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -30,15 +33,14 @@ do
 				esac
 				shift; shift
 				;;
-	--no-headers=*)	kcHeaderArg="$1"; shift;;
+	--no-headers=true)	kcHeaderArg=("$1"); shift; isHeader=;;
+	--no-headers=*)		kcHeaderArg=("$1"); shift;;
 	--)		break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		args+=("$1"); shift;;
     esac
 done
 set -- "${args[@]}" "$@"
-[ "$kcHeaderArg" ] && kcArgs=("$kcHeaderArg" "${kcArgs[@]}")
-[ "$kcHeaderArg" = '--no-headers=true' ] && isHeader=
 
 case $# in
     0) set -- pods --;;
@@ -47,7 +49,7 @@ esac
 lastArg=${!#}
 
 if [ "$lastArg" = '--' ]; then
-    kubectl-get "${@:1:$(($#-1))}" "${kcArgs[@]}" --sort-by='{.metadata.creationTimestamp}' | \
+    kubectl-get "${@:1:$(($#-1))}" "${kcHeaderArg[@]}" "${kcArgs[@]}" --sort-by='{.metadata.creationTimestamp}' | \
 	{
 	    if [ "$isHeader" ]; then
 		IFS=$'\n' read -r header; printf '%s\n' "$header"
@@ -78,7 +80,7 @@ b eatall
 ';
 	}
 else
-    kubectl-get "${@:1:$(($#-1))}" "${kcArgs[@]}" | \
+    kubectl-get "${@:1:$(($#-1))}" "${kcHeaderArg[@]}" "${kcArgs[@]}" | \
 	{
 	    if [ "$isHeader" ]; then
 		IFS=$'\n' read -r header; printf '%s\n' "$header"
