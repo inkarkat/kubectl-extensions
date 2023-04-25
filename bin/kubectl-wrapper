@@ -28,18 +28,35 @@ do
     esac
 done
 
+typeset -A pagerDisabledCommands=(
+    [bash]=''
+    [edit]=''
+    [ef]=''
+    [get]='-w|--watch|--watch-only'
+    [filteredlogs]='-f'
+    [logs]='-f'
+)
+
 pagerDisableCheck()
 {
-    containsGlob '?(filtered)logs' "$@" && contains -f "$@" && pager=()  # Paging would interfere with log following; turn it off.
-    contains get "$@" && containsGlob '-w|--watch|--watch-only' "$@" && pager=()  # Paging would interfere with watching for changes in requested objects; turn it off.
-    contains edit "$@" && pager=()  # Paging would interfere with interactive editing; turn it off.
+    local subCommand; for subCommand in "${!pagerDisabledCommands[@]}"
+    do
+	if contains "$subCommand" "$@"; then
+	    if [ -z "${pagerDisabledCommands["$subCommand"]}" ] \
+		|| containsGlob "${pagerDisabledCommands["$subCommand"]}" "$@"
+	    then
+		pager=()
+		return
+	    fi
+	fi
+    done
 
     if [ -n "$KUBECTL_WRAPPER_DISABLE_PAGER" ]; then
 	read -r -d '' -a subCommands <<<"$KUBECTL_WRAPPER_DISABLE_PAGER"
 	for subCommand in "${subCommands[@]}"; do
 	    if contains "$subCommand" "$@"; then
 		pager=()
-		break
+		return
 	    fi
 	done
     fi
