@@ -39,7 +39,15 @@ typeset -A pagerDisabledCommands=(
 
 pagerDisableCheck()
 {
-    local subCommand; for subCommand in "${!pagerDisabledCommands[@]}"
+    local subCommand
+    if [ -n "$KUBECTL_WRAPPER_DISABLE_PAGER" ]; then
+	typeset -a subCommands; read -r -d '' -a subCommands <<<"$KUBECTL_WRAPPER_DISABLE_PAGER"
+	for subCommand in "${subCommands[@]}"; do
+	    pagerDisabledCommands["$subCommand"]=''
+	done
+    fi
+
+    for subCommand in "${!pagerDisabledCommands[@]}"
     do
 	if contains "$subCommand" "$@"; then
 	    if [ -z "${pagerDisabledCommands["$subCommand"]}" ] \
@@ -50,16 +58,6 @@ pagerDisableCheck()
 	    fi
 	fi
     done
-
-    if [ -n "$KUBECTL_WRAPPER_DISABLE_PAGER" ]; then
-	read -r -d '' -a subCommands <<<"$KUBECTL_WRAPPER_DISABLE_PAGER"
-	for subCommand in "${subCommands[@]}"; do
-	    if contains "$subCommand" "$@"; then
-		pager=()
-		return
-	    fi
-	done
-    fi
 }
 
 typeset kubectlAlias="kubectl-$1"
