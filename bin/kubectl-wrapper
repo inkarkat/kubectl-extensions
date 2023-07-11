@@ -2,6 +2,8 @@
 set -o pipefail
 shopt -qs extglob
 
+: ${KUBECTL_DEFAULT_COMMAND:=p}
+
 # Allow definition of Kubectl aliases by putting an executable "kubectl-foo"
 # somewhere in the PATH. Add paging when outputting to the terminal, as kubectl
 # output can be long (e.g. kubectl describe pod), and the command (nor my
@@ -61,8 +63,8 @@ pagerDisableCheck()
 }
 
 typeset kubectlAlias="kubectl-$1"
-if [ $# -eq 0 ]; then
-    eval "exec \"\${BASH_SOURCE[0]}\" \"\${kubectlArgs[@]}\" ${KUBECTL_DEFAULT_COMMAND:-p}"
+if [ $# -eq 0 -a -n "$KUBECTL_DEFAULT_COMMAND" ]; then
+    eval "exec \"\${BASH_SOURCE[0]}\" \"\${kubectlArgs[@]}\" $KUBECTL_DEFAULT_COMMAND"
 elif type -t "$kubectlAlias" >/dev/null; then
     pagerDisableCheck "$@"
 
