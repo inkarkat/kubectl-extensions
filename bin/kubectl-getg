@@ -78,7 +78,7 @@ getg()
 		# those with the same smallest number of days, but not the even
 		# older ones.
 		sed -e '
-/[0-9]d$/{
+/[0-9]d\([0-9]\{1,2\}h\)\?$/{
     x
     /^$/{
 	1!b eatall
@@ -86,7 +86,7 @@ getg()
 	b
     }
     G
-    /\([0-9]\+d\)\n.*\1$/!b eatall
+    /\([0-9]\+d\)\([0-9]\{1,2\}h\)\?\n.*[^0-9]\1\([0-9]\{1,2\}h\)\?$/!b eatall
     s/^[^\n]*\n//
 }
 b
