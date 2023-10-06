@@ -1,6 +1,8 @@
 #!/bin/bash
 set -o pipefail
 
+: ${KUBECTL_FILTEREDLOGS_FILTER:=shout}
+
 printUsage()
 {
     cat <<HELPTEXT
@@ -8,11 +10,28 @@ Print the logs for a container in a pod or specified resource, passed through a
 filter.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f] [-p] (POD | TYPE/NAME) [-c CONTAINER] [options] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-f|--follow] [-p|--previous|-b|--both] (POD | TYPE/NAME) [-c CONTAINER] [options] [-?|-h|--help]'
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
 
-kubectl-logs "$@" \
-    | eval "${KUBECTL_FILTEREDLOGS_FILTER:-shout}"
+typeset -a kubectlArgs=()
+typeset -a kubectlFollowArgs=()
+isBoth=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--follow|-f)	kubectlFollowArgs+=("$1"); shift;;
+	--both|-b)	isBoth=t; shift;;
+	--)		kubectlArgs+=("$1"); shift; break;;
+	*)		kubectlArgs+=("$1"); shift;;
+    esac
+done
+
+if [ "$isBoth" ]; then
+    "${PAGER:-less}" --force \
+	<(kubectl-logs --previous "${kubectlArgs[@]}" "$@" | eval "$KUBECTL_FILTEREDLOGS_FILTER") \
+	<(kubectl-logs "${kubectlFollowArgs[@]}" ${kubectlFollowArgs:+--tail=-1} "${kubectlArgs[@]}" "$@" | eval "$KUBECTL_FILTEREDLOGS_FILTER")
+    exit $?
+fi
+
+kubectl-logs "${kubectlFollowArgs[@]}" "${kubectlArgs[@]}" "$@" \
+    | eval "$KUBECTL_FILTEREDLOGS_FILTER"

@@ -35,8 +35,8 @@ typeset -A pagerDisabledCommands=(
     [edit]=''
     [ef]=''
     [get]='-w|--watch|--watch-only'
-    [filteredlogs]='-f'
-    [logs]='-f'
+    [filteredlogs]='-f|--follow|-b|--both'
+    [logs]='-f|--follow|-b|--both'
 )
 
 pagerDisableCheck()
