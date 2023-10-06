@@ -3,17 +3,32 @@
 typeset -a kubectlArgs=()
 typeset -a kubectlNamespaceArgs=()
 typeset -a kubectlContainerArgs=()
+hasTailArg=
+hasFollowArg=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--namespace|-n)	kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
 	--container|-c)	kubectlContainerArgs+=("$1" "$2"); shift; shift;;
 	--container=*)	kubectlContainerArgs+=("$1"); shift;;
+
+	--tail)		hasTailArg=t; kubectlArgs+=("$1" "${2?}"); shift; shift;;
+	--tail=*)	hasTailArg=t; kubectlArgs+=("$1"); shift;;
+	--follow|-f)	hasFollowArg=t; kubectlArgs+=("$1" "${2?}"); shift; shift;;
+	--follow=*)	hasFollowArg=t; kubectlArgs+=("$1"); shift;;
+
 	--)		kubectlArgs+=("$1"); shift; break;;
 	*)		kubectlArgs+=("$1"); shift;;
     esac
 done
 # Default container unless given.
 [ -z "$KUBECTL_DEFAULT_CONTAINER" ] || [ ${#kubectlContainerArgs[@]} -gt 0 ] || kubectlContainerArgs=(--container "$KUBECTL_DEFAULT_CONTAINER")
+
+if [ "$hasFollowArg" ] && [ ! "$hasTailArg" ]; then
+    # DWIM: When following, only start with a terminal's height worth of lines,
+    # to avoid needless scrolling of outdated logs. (This is especially
+    # important when the filteredlogs variant comments on some lines.)
+    kubectlArgs+=(--tail=${LINES:-25})
+fi
 
 exec kubectl "${kubectlNamespaceArgs[@]}" logs "${kubectlContainerArgs[@]}" "${kubectlArgs[@]}" "$@"
