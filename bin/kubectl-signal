@@ -1,0 +1,89 @@
+#!/bin/bash
+shopt -qs extglob
+
+printUsage()
+{
+    cat <<HELPTEXT
+Send a signal (default TERM) to the entrypoint process / process(es) matching
+PATTERN in a container.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'POD [-c CONTAINER] [-SIGNAL|--signal SIGNAL] [[PKILL-ARGS ...] PATTERN] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[flags] [-SIGNAL|--signal SIGNAL] [[PKILL-ARGS ...] PATTERN] -- POD'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[flags] [-SIGNAL|--signal SIGNAL] [[PKILL-ARGS ...] PATTERN] [--] POD [-c CONTAINER]'
+}
+
+typeset -a kubectlNamespaceArgs=()
+typeset -a pkillArgs=()
+typeset -a signalArgs=()
+typeset -a otherArgs=()
+pkillPattern=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--all-namespaces|-A)
+			kubectlNamespaceArgs+=("$1"); shift;;
+	--namespace|-n|--selector|-l|--cluster|--context|--template)
+			kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
+
+	-[cflanovwx]*)	pkillArgs+=("$1"); shift;;
+	--@(count|full|list-name|list-full|newest|oldest|inverse|lightweight|exact))
+			pkillArgs+=("$1"); shift;;
+	-[dgGPstuUF])	pkillArgs+=("$1" "${2:?}"); shift; shift;;
+	--@(delimiter|pgroup|group|parent|session|terminal|euid|uid|pidfile|ns|nslist))
+			pkillArgs+=("$1" "${2:?}"); shift; shift;;
+
+	--signal)	signalArgs+=("$1" "${2:?}"); shift; shift;;
+	-@(+([0-9])|?(SIG)+([A-Z])))
+			signalArgs+=("$1"); shift;;
+
+	--)		break;;
+	*)		otherArgs+=("$1"); shift;;
+    esac
+done
+set -- "${otherArgs[@]}" "$@"
+[ $# -eq 0 ] && { printUsage "$0" >&2; exit 2; }
+
+if [ "${*:(-2):1}" = '-c' ]; then
+    # [flags] [PATTERN] [--] POD -c CONTAINER
+    pod="${*:(-3):1}"
+    container="${!#}"
+    [ "${*:(-3):1}" = '--' ] && \
+	set -- "${@:1:$(($#-4))}" || \
+	set -- "${@:1:$(($#-3))}"
+
+    pkillPattern=; [ $# -gt 0 ] && pkillPattern="${!#}"
+    [ $# -eq 0 ] && set -- || set -- "${@:1:$(($#-1))}"
+elif [ "${*:(-2):1}" = '--' ]; then
+    # [flags] [PATTERN] -- POD
+    pod="${!#}"
+    container=
+    set -- "${@:1:$(($#-2))}"
+
+    pkillPattern=; [ $# -gt 0 ] && pkillPattern="${!#}"
+    [ $# -eq 0 ] && set -- || set -- "${@:1:$(($#-1))}"
+else
+    # POD [-c CONTAINER] [PATTERN]
+    pod="$1"; shift
+    container=
+    if [ "$1" = -c ]; then
+	container="${2:?}"
+	shift; shift
+    fi
+    case $# in
+	0)  ;;
+	1)  pkillPattern="$1"; shift;;
+	*)  printUsage "$0" >&2; exit 2;;
+    esac
+fi
+
+if [ ${#pkillArgs[@]} -eq 0 -a -z "$pkillPattern" ]; then
+    typeset -a signalCommand=(kill "${signalArgs[@]}" 1)
+else
+    quotedSignalArgs=; [ ${#signalArgs[@]} -eq 0 ] || printf -v quotedSignalArgs ' %q' "${signalArgs[@]}"
+    quotedPkillArgs=; [ ${#pkillArgs[@]} -eq 0 ] || printf -v quotedPkillArgs ' %q' "${pkillArgs[@]}"
+    quotedPkillPattern=''; [ -z "$pkillPattern" ] || printf -v quotedPkillPattern ' %q' "$pkillPattern"
+    typeset -a signalCommand=(sh -c "until pkill${quotedSignalArgs}${quotedPkillArgs}${quotedPkillPattern}; do sleep 0.01; done")
+fi
+
+exec kubectl-wrapper "${kubectlNamespaceArgs[@]}" exec "$@" "$pod" ${container:+-c "$container"} -- "${signalCommand[@]}"
