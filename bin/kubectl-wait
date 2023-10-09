@@ -195,19 +195,13 @@ parse()
 
     uptimePlural=s; [ $uptimeInSeconds -eq 1 ] && uptimePlural=
     statusprintf "$isFirst" '%s -c %s started %d second%s ago.' "$pod" "$container" "$uptimeInSeconds" "$uptimePlural"
-    if [ $# -gt 0 ]; then
-	# Some kubectl commands (e.g. exec -it) need to read from stdin; restore it.
-	exec 0<&6
+    [ $# -gt 0 ] || exit 99
 
-	local kubectlAlias="kubectl-$1"
-	if type -t "$kubectlAlias" >/dev/null; then
-	    shift
-	    eval $kubectlAlias '"$@" "${kubectlNamespaceArgs[@]}" "$pod" "$containerArg" "$container"'
-	else
-	    command kubectl "$@" "${kubectlNamespaceArgs[@]}" "$pod" "$containerArg" "$container"
-	fi
-    fi
-    exit 99
+    # Some kubectl commands (e.g. exec -it) need to read from stdin; restore it.
+    exec 0<&6
+    kubectl-wrapper "$@" "${kubectlNamespaceArgs[@]}" "$pod" "$containerArg" "$container" \
+	&& exit 99 \
+	|| exit $?
 }
 
 
