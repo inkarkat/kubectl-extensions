@@ -12,8 +12,8 @@ execute the kubectl SUBCOMMAND with the POD -c CONTAINER arguments then]. With
 down.
 HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-W|--no-initial-wait] [-n|--namespace NAMESPACE] POD[-PATTERN] [-c CONTAINER] [SUBCOMMAND ...] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-W|--no-initial-wait] [-n|--namespace NAMESPACE] [SUBCOMMAND ...] -- POD[-PATTERN] [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-W|--no-initial-wait] [-n|--namespace NAMESPACE] [SUBCOMMAND ...] [--] POD[-PATTERN] -c CONTAINER [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-W|--no-initial-wait] [-n|--namespace NAMESPACE] [SUBCOMMAND ...] -- POD[-PATTERN]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-W|--no-initial-wait] [-n|--namespace NAMESPACE] [SUBCOMMAND ...] [--] POD[-PATTERN] -c CONTAINER'
 }
 
 # Extract the --namespace argument; it may appear anywhere, so we need to go through all command-line arguments and filter them out.
@@ -36,28 +36,28 @@ esac
 
 if [ "${*:(-2):1}" = '-c' ]; then
     # [SUBCOMMAND ...] [--] POD -c CONTAINER
-    podPattern=${*:(-3):1}
-    container=${!#}
+    podPattern="${*:(-3):1}"
+    container="${!#}"
     [ "${*:(-3):1}" = '--' ] && \
 	set -- "${@:1:$(($#-4))}" || \
 	set -- "${@:1:$(($#-3))}"
 elif [ "${*:(-2):1}" = '--' ]; then
     # [SUBCOMMAND ...] -- POD
-    podPattern=${!#}
+    podPattern="${!#}"
     container=
     set -- "${@:1:$(($#-2))}"
 else
     # POD [-c CONTAINER] [SUBCOMMAND ...]
-    podPattern=$1; shift
+    podPattern="$1"; shift
     container=
     if [ "$1" = -c ]; then
-	container=$2
+	container="${2:?}"
 	shift; shift
     fi
 fi
 
 
-typeset -a podFilter=(grep -e "^[^ ]*$podPattern"); shift
+typeset -a podFilter=(grep -e "^[^ ]*$podPattern")
 : ${KUBECTL_IGNORE_CONTAINERNAMES='\(kubernetes-\)\?vault-renew'}
 typeset -a containerFilter=()
 if [ "$container" ]; then
@@ -93,14 +93,20 @@ else
 fi
 statusprintf()
 {
-    typeset format=$1; shift
-    printf >&2 "[1F[2K${format}\n" "$@"
+    local isFirst="${1?}"; shift
+    typeset format="${1:?}"; shift
+    overwritePrevious='[1F[2K'
+    [ "$isFirst" ] && overwritePrevious=
+    printf >&2 "%s${format}\n" "$overwritePrevious" "$@"
 }
 spinningprintf()
 {
+    local isFirst="${1?}"; shift
+    typeset format="${1:?}"; shift
+    overwritePrevious='[1F[2K'
+    [ "$isFirst" ] && overwritePrevious=
     typeset SPINNER='/-\|'
-    typeset format=$1; shift
-    printf >&2 "[1F[2K${format} %s\\n" "$@" "${SPINNER:$((SECONDS % 4)):1}"
+    printf >&2 "%s${format} %s\\n" "$overwritePrevious" "$@" "${SPINNER:$((SECONDS % 4)):1}"
 }
 printErrorResults()
 {
@@ -122,12 +128,13 @@ getPodContainerStartTimes()
 }
 parse()
 {
-    mapfile results
+    local isFirst="${1?}"; shift
+    readarray results
 
     local IFS=' '
     if [ ${#results[@]} -eq 0 ]; then
 	printf -v kcCommand '%q ' kubectl get pods "${kubectlNamespaceArgs[@]}" ${podFilter:+|} "${podFilter[@]}" ${containerFilter:+|} "${containerFilter[@]}"
-	spinningprintf 'ERROR: No results for %s' "${kcCommand// \\| / | }"
+	spinningprintf "$isFirst" 'ERROR: No results for %s' "${kcCommand// \\| / | }"
 	exit 1
     elif [ ${#results[@]} -gt 1 ]; then
 	typeset -a runningResults=()
@@ -157,9 +164,9 @@ parse()
     if [ ! "$startTimeOrState" ]; then
 	local phase="$(kubectl "${kubectlNamespaceArgs[@]}" get pod "$pod" -o go-template --template '{{.state.phase}}')"
 	if [ "$phase" ]; then
-	    spinningprintf '%s is currently in phase %s.' "$pod" "$phase"
+	    spinningprintf "$isFirst" '%s is currently in phase %s.' "$pod" "$phase"
 	else
-	    spinningprintf '%s currently has an unknown status.' "$pod"
+	    spinningprintf "$isFirst" '%s currently has an unknown status.' "$pod"
 	fi
 	return 0
     fi
@@ -169,10 +176,10 @@ parse()
 	read -r lastState lastDate < "$lastStateFilespec"
 
 	if [ "$lastState" = "$startTimeOrState" -a "$lastDate" ]; then
-	    spinningprintf '%s -c %s has been in status %s %s.' "$pod" "$container" "$startTimeOrState" "$(showDuration "$lastDate")"
+	    spinningprintf "$isFirst" '%s -c %s has been in status %s %s.' "$pod" "$container" "$startTimeOrState" "$(showDuration "$lastDate")"
 	else
 	    printf >&2 '%s %s\n' "$startTimeOrState" "$(date --utc +%FT%TZ)" > "$lastStateFilespec"
-	    spinningprintf '%s -c %s is currently in status %s.' "$pod" "$container" "$startTimeOrState"
+	    spinningprintf "$isFirst" '%s -c %s is currently in status %s.' "$pod" "$container" "$startTimeOrState"
 	fi
 
 	return 0
@@ -182,25 +189,31 @@ parse()
     local uptimeInSeconds=$((now - startEpoch))
 
     if [ $uptimeInSeconds -gt $KUBECTL_WAIT_MAX_UPTIME_IN_SECONDS_FOR_NEWNESS ]; then
-	spinningprintf '%s -c %s is not yet down (started %s).' "$pod" "$container" "$(showDate "$startTimeOrState")"
+	spinningprintf "$isFirst" '%s -c %s is not yet down (started %s).' "$pod" "$container" "$(showDate "$startTimeOrState")"
 	return 0
     fi
 
     uptimePlural=s; [ $uptimeInSeconds -eq 1 ] && uptimePlural=
-    statusprintf '%s -c %s started %d second%s ago.' "$pod" "$container" "$uptimeInSeconds" "$uptimePlural"
-    if [ $# -gt 0 ]; then
-	# Some kubectl commands (e.g. exec -it) need to read from stdin; restore it.
-	exec 0<&6
+    statusprintf "$isFirst" '%s -c %s started %d second%s ago.' "$pod" "$container" "$uptimeInSeconds" "$uptimePlural"
+    [ $# -gt 0 ] || exit 99
 
-	local kubectlAlias="kubectl-$1"
-	if type -t "$kubectlAlias" >/dev/null; then
-	    shift
-	    eval $kubectlAlias '"$@" "${kubectlNamespaceArgs[@]}" "$pod" "$containerArg" "$container"'
-	else
-	    command kubectl "$@" "${kubectlNamespaceArgs[@]}" "$pod" "$containerArg" "$container"
-	fi
-    fi
-    exit 99
+    # Some kubectl commands (e.g. exec -it) need to read from stdin; restore it.
+    exec 0<&6
+
+    # Appending pod and container name after SUBCOMMAND may interfere with it
+    # (e.g. "kubectl exec -- sh -c 'uname -a'"; the shell's -c is different from
+    # kubectl's -c CONTAINER). Therefore, insert directly after the kubectl
+    # command; for that, we need to consider our aliases (and possible nesting
+    # of them).
+    typeset -a kubectlCommand=("${1:?}"); shift
+    while type -t "kubectl-$1" >/dev/null
+    do
+	kubectlCommand+=("$1"); shift
+    done
+
+    kubectl-wrapper "${kubectlNamespaceArgs[@]}" "${kubectlCommand[@]}" "$pod" "$containerArg" "$container" "$@" \
+	&& exit 99 \
+	|| exit $?
 }
 
 
@@ -211,14 +224,18 @@ lastStateFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null ||
 : > "$lastStateFilespec"
 [ "$DEBUG" ] || trap 'rm "$lastStateFilespec" 2>/dev/null' EXIT
 
+isFirst=t
 while :
 do
-    eval 'getPodContainerStartTimes "${kubectlNamespaceArgs[@]}"' "${podFilter:+|}" '"${podFilter[@]}"' "${containerFilter:+|}" '"${containerFilter[@]}"' | \
-	parse "$@"
+    eval 'getPodContainerStartTimes "${kubectlNamespaceArgs[@]}"' \
+	"${podFilter:+|}" '"${podFilter[@]}"' \
+	"${containerFilter:+|}" '"${containerFilter[@]}"' \
+	| parse "$isFirst" "$@"
     status=$?
     case $status in
 	0)  sleep 3s;;
 	99) exit 0;;
 	*)  exit $status;;
     esac
+    isFirst=
 done
