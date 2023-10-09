@@ -199,7 +199,19 @@ parse()
 
     # Some kubectl commands (e.g. exec -it) need to read from stdin; restore it.
     exec 0<&6
-    kubectl-wrapper "$@" "${kubectlNamespaceArgs[@]}" "$pod" "$containerArg" "$container" \
+
+    # Appending pod and container name after SUBCOMMAND may interfere with it
+    # (e.g. "kubectl exec -- sh -c 'uname -a'"; the shell's -c is different from
+    # kubectl's -c CONTAINER). Therefore, insert directly after the kubectl
+    # command; for that, we need to consider our aliases (and possible nesting
+    # of them).
+    typeset -a kubectlCommand=("${1:?}"); shift
+    while type -t "kubectl-$1" >/dev/null
+    do
+	kubectlCommand+=("$1"); shift
+    done
+
+    kubectl-wrapper "${kubectlNamespaceArgs[@]}" "${kubectlCommand[@]}" "$pod" "$containerArg" "$container" "$@" \
 	&& exit 99 \
 	|| exit $?
 }
