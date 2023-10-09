@@ -57,7 +57,7 @@ else
 fi
 
 
-typeset -a podFilter=(grep -e "^[^ ]*$podPattern"); shift
+typeset -a podFilter=(grep -e "^[^ ]*$podPattern")
 : ${KUBECTL_IGNORE_CONTAINERNAMES='\(kubernetes-\)\?vault-renew'}
 typeset -a containerFilter=()
 if [ "$container" ]; then
