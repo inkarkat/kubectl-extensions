@@ -7,7 +7,7 @@ printUsage()
 Print the PV name for the PVCs of the given PODs.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--unpiped] [KUBECTL-ARGS ...] [POD-NAME ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--unpiped] [KUBECTL-ARGS ...] [SELECTOR|POD-NAME ...] [-?|-h|--help]'
 }
 
 typeset -a args=()
@@ -35,9 +35,25 @@ do
 done
 set -- "${args[@]}" "$@"
 
-readarray -t pvcs < <(kubectl get pvc "${kcArgs[@]}" "$@" -o go-template --template '{{range .items}}{{.spec.volumeName}}{{"\n"}}{{end}}'; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
-[ ${pvcs[-1]} -ne 0 ] && exit ${pvcs[-1]}
-unset 'pvcs[-1]'; [ -z "${pvcs[-1]}" ] && unset 'pvcs[-1]'
+typeset -a results=()
+query()
+{
+    readarray -t results < <(kubectl get "$@"; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
+    [ ${results[-1]} -ne 0 ] && return ${results[-1]}
+    unset 'results[-1]'; [ -z "${results[-1]}" ] && unset 'results[-1]'
+    return 0
+}
+
+readonly PV_SELECTOR='{{.spec.volumeName}}{{"\n"}}'
+readonly PVC_SELECTOR='{{range .spec.volumes}}{{if ne .persistentVolumeClaim.claimName nil}}{{.persistentVolumeClaim.claimName}}{{"\n"}}{{end}}{{end}}'
+
+# First try to directly get the PVCs (works if nothing or a selector has been passed).
+if ! query pvc "${kcArgs[@]}" "$@" -o go-template --template "{{if .items}}{{range .items}}${PV_SELECTOR}{{end}}{{else}}${PV_SELECTOR}{{end}}" 2>/dev/null; then
+    # If that failed, try to get the POD(s) and extract the (PVCs) from there.
+    query pods "${kcArgs[@]}" "$@" -o go-template --template "{{if .items}}{{range .items}}${PVC_SELECTOR}{{end}}{{else}}${PVC_SELECTOR}{{end}}" || exit $?
+    query pvc "${kcArgs[@]}" -o go-template --template "{{if .items}}{{range .items}}${PV_SELECTOR}{{end}}{{else}}${PV_SELECTOR}{{end}}" "${results[@]}" || exit $?
+fi
+[ ${#results[@]} -gt 0 ] || exit 99
 
 if [ "$isPiped" ]; then
     # DWIM: When piped into another command or captured, just print the first
@@ -46,4 +62,4 @@ if [ "$isPiped" ]; then
     filter='head -n 1 | field 1'
 fi
 
-eval 'kubectl get pv "${kcHeaderArg[@]}" "${kcArgs[@]}" "${pvcs[@]}"' "${filter:+|}$filter"
+eval 'kubectl get pv "${kcHeaderArg[@]}" "${kcArgs[@]}" "${results[@]}"' "${filter:+|}$filter"
