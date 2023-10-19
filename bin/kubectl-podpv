@@ -4,12 +4,13 @@ set -o pipefail
 printUsage()
 {
     cat <<HELPTEXT
-Print the PV name for the PVCs of the given PODs.
+Print the PV subvolume name (and more details) for the PVCs of the given PODs.
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--unpiped] [KUBECTL-ARGS ...] [SELECTOR|POD-NAME ...] [-?|-h|--help]'
 }
 
+typeset pvOutputArgs=()
 typeset -a args=()
 typeset -a kcArgs=()
 typeset -a kcHeaderArg=()
@@ -29,11 +30,16 @@ do
 	--namespace|-n|--cluster|--context|--template)
 			kcArgs+=("$1" "$2"); shift; shift;;
 	--no-headers=*)	kcHeaderArg=("$1"); shift;;
+
+	--output|-o)	pvOutputArgs+=("$1" "${2?}"); shift; shift;;
+	--output=*)	pvOutputArgs+=("$1"); shift;;
+
 	--)		break;;
 	*)		args+=("$1"); shift;;
     esac
 done
 set -- "${args[@]}" "$@"
+[ ${#pvOutputArgs[@]} -gt 0 ] || pvOutputArgs=(--output custom-columns=SUBVOLUME:.spec.csi.volumeAttributes.subvolumeName,CAPACITY:.spec.capacity.storage,STATUS:.status.phase,CLAIM:.spec.claimRef.name,AGE:.metadata.creationTimestamp)
 
 typeset -a results=()
 query()
@@ -62,4 +68,4 @@ if [ "$isPiped" ]; then
     filter='head -n 1 | field 1'
 fi
 
-eval 'kubectl get pv "${kcHeaderArg[@]}" "${kcArgs[@]}" "${results[@]}"' "${filter:+|}$filter"
+eval 'kubectl get pv "${pvOutputArgs[@]}" "${kcHeaderArg[@]}" "${kcArgs[@]}" "${results[@]}"' "${filter:+|}$filter"
