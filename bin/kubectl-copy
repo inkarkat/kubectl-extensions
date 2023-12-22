@@ -1,12 +1,14 @@
 #!/bin/bash
 
+: ${KUBECTL_COPY_PODS_END=;}
+
 printUsage()
 {
     cat <<HELPTEXT
 Copy all FILE(s) to/from DESTINATION in the passed POD(s) / Pod(s) matching SELECTOR.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '--to|--from (-l|--selector SELECTOR|-p|--pod POD [-p ...]|--pods POD [...] ;) [-c|--container CONTAINER] [--] FILE [...] DESTINATION [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "--to|--from (-l|--selector SELECTOR|-p|--pod POD [-p ...]|--pods POD [...] ${KUBECTL_COPY_PODS_END}) [-c|--container CONTAINER] [--] FILE [...] DESTINATION [-?|-h|--help]"
 }
 
 direction=
@@ -22,13 +24,13 @@ do
 	--to|--from)	direction="${1#--}"; shift;;
 	--pod|-p)	shift; pods+=("$1"); shift;;
 	--pods)		shift
-			while [ $# -gt 0 -a "$1" != ';' ]
+			while [ $# -gt 0 -a "$1" != "$KUBECTL_COPY_PODS_END" ]
 			do
 			    pods+=("$1")
 			    shift
 			done
 			if [ $# -eq 0 ]; then
-			    echo 'ERROR: --pods must be concluded with ;!'; echo; printUsage "$0"
+			    echo "ERROR: --pods must be concluded with '${KUBECTL_COPY_PODS_END}'"; echo; printUsage "$0"
 			    exit 2
 			fi >&2
 			shift
@@ -53,7 +55,7 @@ if [ -z "$direction" ]; then
     echo
     printUsage "$0"
 elif [ ${#kubectlSelectorArgs[@]} -eq 0 -a ${#pods[@]} -eq 0 ]; then
-    echo 'ERROR: No --selector or --pods POD [...] ; or --pod POD passed.'
+    echo "ERROR: No --selector or --pods POD [...] $KUBECTL_COPY_PODS_END or --pod POD passed."
     echo
     printUsage "$0"
     exit 2
