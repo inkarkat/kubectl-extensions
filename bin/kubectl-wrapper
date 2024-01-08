@@ -51,11 +51,12 @@ pagerDisableCheck()
 
     for subCommand in "${!pagerDisabledCommands[@]}"
     do
-	if contains "$subCommand" "$@"; then
+	if subCommandIndex=$(index "$subCommand" "$@"); then
 	    if [ -z "${pagerDisabledCommands["$subCommand"]}" ] \
-		|| containsGlob "${pagerDisabledCommands["$subCommand"]}" "$@"
+		|| containsGlob "${pagerDisabledCommands["$subCommand"]}" "${@:subCommandIndex}"
 	    then
 		pager=()
+		case ",${DEBUG:-}," in *,kubectl-wrapper,*) printf >&2 '%skubectl-wrapper: Disabling pager for %s subcommand.\n' "$PS4" "$subCommand";; esac
 		return
 	    fi
 	fi
