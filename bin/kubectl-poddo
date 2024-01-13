@@ -1,6 +1,7 @@
 #!/bin/bash
 shopt -qs extglob
 
+: ${KUBECTL_PODDO_COMMAND_JOINER=;}
 : ${KUBECTL_PODDO_POD_MARKER:='{}'}
 podMarker="$KUBECTL_PODDO_POD_MARKER"; unset KUBECTL_PODDO_POD_MARKER
 
@@ -15,12 +16,12 @@ HELPTEXT
 
 typeset -a kubectlArgs=()
 typeset -a containerArgs=()
-typeset -a commands=()
+commands=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-	--command)	shift; commands+=(${commands:+;} "$1"); shift;;
+	--command)	shift; commands+="${commands:+ $KUBECTL_PODDO_COMMAND_JOINER }$1"; shift;;
 	-c)		containerArgs+=("$1" "$2"); shift; shift;;
 	--)		shift; break;;
 	*)		kubectlArgs+=("$1"); shift;;
@@ -35,9 +36,9 @@ if [ $# -ne 0 ]; then
     # undo the effects of eval.
     printf -v quotedSimpleCommand '%q ' "$@"
     printf -v escapedPodMarker %q "$podMarker"
-    commands+=(${commands:+;} "${quotedSimpleCommand//"$escapedPodMarker"/$podMarker}")	# %q escapes {}, we don't want that to have it interpolated later.
+    commands+="${commands:+ $KUBECTL_PODDO_COMMAND_JOINER }${quotedSimpleCommand//"$escapedPodMarker"/$podMarker}"	# %q escapes {}, we don't want that to have it interpolated later.
 fi
-if [ ${#commands[@]} -eq 0 ]; then
+if [ -z "$commands" ]; then
     echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
     echo
     printUsage "$0"
@@ -76,9 +77,9 @@ do
 
     typeset -a p=("$pod")
     printf -v pod '%q' "$pod"
-    typeset -a interpolatedCommands=("${commands[@]//"$podMarker"/$pod}")
-    [ "${interpolatedCommands[*]}" = "${commands[*]}" ] || p=()
+    interpolatedCommands="${commands//"$podMarker"/$pod}"
+    [ "$interpolatedCommands" = "$commands" ] || p=()
 
-    eval "${interpolatedCommands[@]}" '"${p[@]}" "${containerArgs[@]}" "${kubectlArgsWithoutPod[@]}"' || status=$?
+    eval "$interpolatedCommands" '"${p[@]}" "${containerArgs[@]}" "${kubectlArgsWithoutPod[@]}"' || status=$?
 done
 exit $status
