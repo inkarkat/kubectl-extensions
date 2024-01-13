@@ -15,13 +15,12 @@ HELPTEXT
 
 typeset -a kubectlArgs=()
 typeset -a containerArgs=()
-isNeedEval=
 typeset -a commands=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-	--command)	shift; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
+	--command)	shift; commands+=(${commands:+;} "$1"); shift;;
 	-c)		containerArgs+=("$1" "$2"); shift; shift;;
 	--)		shift; break;;
 	*)		kubectlArgs+=("$1"); shift;;
@@ -32,15 +31,11 @@ if [ ${#kubectlArgs[@]} -eq 0 ]; then
     exit 2
 fi
 if [ $# -ne 0 ]; then
-    if [ "$isNeedEval" ]; then
-	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
-	# undo the effects of eval.
-	printf -v quotedSimpleCommand '%q ' "$@"
-	printf -v escapedPodMarker %q "$podMarker"
-	commands+=(${commands:+;} "${quotedSimpleCommand//"$escapedPodMarker"/$podMarker}")	# %q escapes {}, we don't want that to have it interpolated later.
-    else
-	commands=("$@")
-    fi
+    # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+    # undo the effects of eval.
+    printf -v quotedSimpleCommand '%q ' "$@"
+    printf -v escapedPodMarker %q "$podMarker"
+    commands+=(${commands:+;} "${quotedSimpleCommand//"$escapedPodMarker"/$podMarker}")	# %q escapes {}, we don't want that to have it interpolated later.
 fi
 if [ ${#commands[@]} -eq 0 ]; then
     echo 'ERROR: No COMMAND(s) specified; need to pass -c|--command "COMMANDLINE", or SIMPLECOMMAND.'
@@ -80,14 +75,10 @@ do
     [ ${#pods[@]} -gt 1 ] && printHeader "$pod"
 
     typeset -a p=("$pod")
-    [ "$isNeedEval" ] && printf -v pod '%q' "$pod"
+    printf -v pod '%q' "$pod"
     typeset -a interpolatedCommands=("${commands[@]//"$podMarker"/$pod}")
     [ "${interpolatedCommands[*]}" = "${commands[*]}" ] || p=()
 
-    if [ "$isNeedEval" ]; then
-	eval "${interpolatedCommands[@]}" '"${p[@]}" "${containerArgs[@]}" "${kubectlArgsWithoutPod[@]}"'
-    else
-	"${interpolatedCommands[@]}" "${p[@]}" "${containerArgs[@]}" "${kubectlArgsWithoutPod[@]}"
-    fi || status=$?
+    eval "${interpolatedCommands[@]}" '"${p[@]}" "${containerArgs[@]}" "${kubectlArgsWithoutPod[@]}"' || status=$?
 done
 exit $status
