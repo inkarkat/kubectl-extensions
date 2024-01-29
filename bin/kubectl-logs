@@ -1,5 +1,7 @@
 #!/bin/bash
 
+: ${KUBECTL_LOGS_SMALLSCALE_SELECTOR:-}
+
 typeset -a kubectlArgs=()
 typeset -a kubectlNamespaceArgs=()
 typeset -a kubectlContainerArgs=()
@@ -32,11 +34,20 @@ if [ "$isBoth" ]; then
     exit $?
 fi
 
-if [ ${#kubectlFollowArgs[@]} -gt 0 ] && [ ! "$hasTailArg" ]; then
-    # DWIM: When following, only start with a terminal's height worth of lines,
-    # to avoid needless scrolling of outdated logs. (This is especially
-    # important when the filteredlogs variant comments on some lines.)
-    kubectlFollowArgs+=(--tail=${LINES:-25})
+if [ ! "$hasTailArg" ]; then
+    if [ ${#kubectlFollowArgs[@]} -gt 0 ]; then
+	# DWIM: When following, only start with a terminal's height worth of lines, to
+	# avoid needless scrolling of outdated logs. (This is especially important when
+	# the filteredlogs variant comments on some lines.)
+	kubectlFollowArgs+=(--tail=${LINES:-25})
+    elif [ "$KUBECTL_LOGS_SMALLSCALE_SELECTOR" ]; then
+	# If a selector is provided, "kubectl logs" will default to just 10 log lines
+	# instead of everything. That makes sense for a potentially large list of
+	# targets, but the selectors I'm encountering mostly target a single or at most
+	# a few Pods. Therefore, restore the original full logging scope unless the user
+	# has overridden that via a passed --tail parameter.
+	kubectlArgs+=(--tail=-1)
+    fi
 fi
 
 exec kubectl "${kubectlNamespaceArgs[@]}" logs "${kubectlContainerArgs[@]}" "${kubectlFollowArgs[@]}" "${kubectlArgs[@]}" "$@"
