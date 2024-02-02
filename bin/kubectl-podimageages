@@ -1,0 +1,48 @@
+#!/bin/bash
+set -o pipefail
+
+printUsage()
+{
+    cat <<HELPTEXT
+List the image creation dates of containers running in PODs [matching EXPR] [of
+container CONTAINER-NAME].
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER-NAME] [-?|-h|--help]'
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+typeset -A imageAges=()
+exitStatus=
+while IFS=$'\n' read -r line || { exitStatus="$line"; break; }	# Exit status from the process substitution (<(pipeline)) is lost; return the actual exit status via an incomplete (i.e. missing the newline) last line.
+do
+    if [ -z "$line" ] || [[ "$line" =~ ^[^[:space:]]+:$ ]]; then
+	printf '%s\n' "$line"
+	continue
+    elif [[ "$line" =~ ^(    )([^[:space:]]+)([[:space:]]+)([^[:space:]]+)$ ]]; then
+	indent="${BASH_REMATCH[1]}"
+	containerName="${BASH_REMATCH[2]}"
+	sep="${BASH_REMATCH[3]}"
+	imageName="${BASH_REMATCH[4]}"
+    elif [[ "$line" =~ ^([^[:space:]]+)($'\t')([^[:space:]]+)$ ]]; then
+	indent=''
+	containerName="${BASH_REMATCH[1]}"
+	sep="${BASH_REMATCH[2]}"
+	imageName="${BASH_REMATCH[3]}"
+    else
+	indent=''
+	containerName=''
+	sep=''
+	imageName="$line"
+    fi
+
+    imageAge="${imageAges["$imageName"]}"
+    if [ -z "$imageAge" ]; then
+	imageAge="$(regctl image inspect --format '{{.Created.Format "2006-01-02T15:04:05Z07:00" }}' "$imageName")" || imageAge='???'
+	imageAges["$imageName"]="$imageAge"
+    fi
+
+    printf '%s%s%s%s%s\n' "$indent" "$containerName" "${containerName:+$sep}" "" "$imageAge"
+done < <(kubectl-podimages "$@"; printf %d "$?")
+exit $exitStatus
