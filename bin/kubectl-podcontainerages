@@ -1,18 +1,55 @@
 #!/bin/bash
 set -o pipefail
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--relative-date] [KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER-NAME] [-?|-h|--help]'
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 List the start date / termination state of each container [of container
 CONTAINER-NAME] for PODs [matching EXPR].
-HELPTEXT
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER-NAME] [-?|-h|--help]'
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --relative-date|-r	Use relative dates (e.g. "2 days ago") instead of
+			absolute timestamps.
+HELPTEXT
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
+
+typeset -a getPodsArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--relative-date|-r)
+			shift
+			if type -t reldate >/dev/null; then
+			    reldate=(reldate --date-pattern '\b(?<year>\d\d\d\d)-(?<month>\d\d)-(?<day>\d\d)T(?<hours>\d\d):(?<minutes>\d\d):(?<seconds>\d\d)(?<timezone>Z)\b' --prefer-past)
+			else
+			    echo >&2 'ERROR: The reldate command is not available.'
+			    exit 3
+			fi
+			;;
+	--)		getPodsArgs+=("$1"); shift; break;;
+	*)		getPodsArgs+=("$1"); shift;;
+    esac
+done
+set -- "${getPodsArgs[@]}" "$@"
 
 typeset -a emptyFilter=(sed
     -e '/^  [^ ]\+/{ N; /\n$/d }'
@@ -67,5 +104,6 @@ eval 'getAllPodContainerStartTimes "$@"' \
     "${podFilter:+|}" '"${podFilter[@]}"' \
     "${containerFilter:+|}" '"${containerFilter[@]}"' \
     "${singleResultFilter:+|}" '"${singleResultFilter[@]}"' \
+    "${reldate:+|}" '"${reldate[@]}"' \
     "${finalFilter:+|}" '"${finalFilter[@]}"' \
     "${emptyFilter:+|}" '"${emptyFilter[@]}"'
