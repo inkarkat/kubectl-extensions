@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--relative-date] [KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER-NAME] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[-r|--relative-date] [KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER-NAME|''] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -64,12 +64,11 @@ typeset -a finalFilter=(sed -e 's#^\([^[:space:]]\+\)\t#\1:\n#' -e 's#\t#\n#g')
 
 filterContainer=
 if [ $# -ge 2 ] && [ "${*:(-2):1}" = '-c' ]; then
-    filterContainer=${!#}
+    filterContainer="${!#}"
     set -- "${@:1:$(($#-2))}"
-
-    # Omit PODs that don't have any matching containers.
-    finalFilter=(sed -e '/^[^\t]\+\t$/d')
 fi
+# Omit PODs that don't have any matching containers.
+[ -z "$filterContainer" ] || finalFilter=(sed -e '/^[^\t]\+\t$/d')
 
 typeset -a podFilter=()
 if [ $# -ge 2 ] && [ "${*:(-2):1}" = -- ]; then
@@ -92,7 +91,7 @@ fi
 
 getAllPodContainerStartTimes()
 {
-    if [ "$filterContainer" ]; then
+    if [ -n "$filterContainer" ]; then
 	local -r SELECTOR='{{.metadata.name}}{{"\t"}}{{range .status.containerStatuses}}{{if eq .name "'"$filterContainer"'"}}{{if .state.running}}{{.state.running.startedAt}}{{else}}{{range $key, $value := .state}}{{$key}} {{end}}{{end}}{{end}}{{if .status.reason}}(Status:{{.status.reason}}){{end}}{{end}}{{"\n"}}'
     else
 	local -r SELECTOR='{{.metadata.name}}{{"\t"}}{{range .status.containerStatuses}}    {{.name}}{{if .state.running}} {{.state.running.startedAt}}{{else}}{{range $key, $value := .state}} {{$key}}{{end}}{{end}}{{"\t"}}{{end}}{{if .status.reason}}    (Status:{{.status.reason}}){{"\t"}}{{end}}{{"\n"}}'

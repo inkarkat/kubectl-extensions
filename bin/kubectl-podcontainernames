@@ -9,7 +9,7 @@ are dropped if given] for PODs [matching EXPR]. PODs that don't have any
 [matching] containers are omitted.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER-NAME] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER-NAME|''] [-?|-h|--help]"
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -20,12 +20,11 @@ typeset -a finalFilter=()
 
 filterContainer=
 if [ $# -ge 2 ] && [ "${*:(-2):1}" = '-c' ]; then
-    filterContainer=${!#}
+    filterContainer="${!#}"
     set -- "${@:1:$(($#-2))}"
-
-    # Omit PODs that don't have any matching containers.
-    finalFilter=(sed -e '/ -c /!d')
 fi
+# Omit PODs that don't have any matching containers.
+[ -z "$filterContainer" ] || finalFilter=(sed -e '/ -c /!d')
 
 typeset -a podFilter=()
 if [ $# -ge 2 ] && [ "${*:(-2):1}" = -- ]; then
@@ -48,7 +47,7 @@ fi
 
 getAllPodContainerNames()
 {
-    if [ "$filterContainer" ]; then
+    if [ -n "$filterContainer" ]; then
 	local -r SELECTOR='{{.metadata.name}}{{range .spec.containers}}{{if eq .name "'"$filterContainer"'"}} -c {{.name}}{{end}}{{end}}{{"\n"}}'
     else
 	local -r SELECTOR='{{.metadata.name}}{{range .spec.containers}} -c {{.name}}{{end}}{{"\n"}}'

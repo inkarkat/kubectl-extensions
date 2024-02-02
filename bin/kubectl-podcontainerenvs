@@ -8,7 +8,7 @@ List the environments of each container [of container CONTAINER-NAME] for PODs
 [matching EXPR].
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER-NAME] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER-NAME|''] [-?|-h|--help]"
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -33,9 +33,8 @@ typeset -a finalFilter=(sed \
 
 filterContainer=
 if [ $# -ge 2 ] && [ "${*:(-2):1}" = '-c' ]; then
-    filterContainer=${!#}
+    filterContainer="${!#}"
     set -- "${@:1:$(($#-2))}"
-
     # PODs that don't have any matching containers are omitted automatically here.
 fi
 
@@ -60,7 +59,7 @@ fi
 
 getAllPodContainerEnvironments()
 {
-    if [ "$filterContainer" ]; then
+    if [ -n "$filterContainer" ]; then
 	local -r SELECTOR='{{$podName := .metadata.name}}{{range .spec.containers}}{{if eq .name "'"$filterContainer"'"}}{{$podName}}{{"\t"}}{{range .env}}{{.name}}{{if .valueFrom}} -> .{{.valueFrom.fieldRef.fieldPath}}{{else}}={{.value}}{{end}}{{"\t"}}{{end}}{{end}}{{"\n"}}{{end}}'
     else
 	local -r SELECTOR='{{$podName := .metadata.name}}{{range .spec.containers}}{{$podName}} -c {{.name}}{{"\t"}}{{range .env}}{{.name}}{{if .valueFrom}} -> .{{.valueFrom.fieldRef.fieldPath}}{{else}}={{.value}}{{end}}{{"\t"}}{{end}}{{"\n"}}{{end}}'
