@@ -6,7 +6,7 @@ printUsage()
     cat <<HELPTEXT
 Query GO-TEMPLATE for PODs [matching EXPR] [of container CONTAINER-NAME].
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'GO-TEMPLATE [KUBECTL-ARGS ...] [-- EXPR] [-c CONTAINER-NAME] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'GO-TEMPLATE [KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER-NAME] [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
