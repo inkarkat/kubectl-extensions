@@ -4,33 +4,61 @@ set -o pipefail
 printUsage()
 {
     cat <<HELPTEXT
-List the name of each container.
+List the name of each container [of container CONTAINER-NAME; other containers
+are dropped if given] for PODs [matching EXPR]. PODs that don't have any
+[matching] containers are omitted.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[KUBECTL-ARGS ...] [POD-NAME ...] [-- POD-PATTERN|' -c CONTAINER-PATTERN'] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER-NAME] [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
+typeset -a singleResultFilter=()
+typeset -a finalFilter=()
 
-typeset -a filter=()
-if [ $# -ge 2 ] && [ "${*:(-2):1}" = -- ]; then
-    filter=(grep -e "^[^ ]*${!#}")
+filterContainer=
+if [ $# -ge 2 ] && [ "${*:(-2):1}" = '-c' ]; then
+    filterContainer=${!#}
     set -- "${@:1:$(($#-2))}"
+
+    # Omit PODs that don't have any matching containers.
+    finalFilter=(sed -e '/ -c /!d')
+fi
+
+typeset -a podFilter=()
+if [ $# -ge 2 ] && [ "${*:(-2):1}" = -- ]; then
+    podFilterExpr=${!#}
+    podFilter=(grep -e "^[^ ]*$podFilterExpr")
+    set -- "${@:1:$(($#-2))}"
+
+    # Omit POD prefix if there's only a single matching POD and it exactly
+    # matches the passed EXPR.
+    literalPodFilterExpr=$(printf %s "$podFilterExpr" | sed -e 's/[][\$*.^#]/\\&/g')
+    singleResultFilter=(sed -e '1!b' -e "\$s#^${literalPodFilterExpr}\\t##")
 fi
 
 : ${KUBECTL_IGNORE_CONTAINERNAMES='\(kubernetes-\)\?vault-renew'}
 typeset -a containerFilter=()
 if [ "$KUBECTL_IGNORE_CONTAINERNAMES" ]; then
     ignoredContainerBranches="${KUBECTL_IGNORE_CONTAINERNAMES// /\\|}"
-    containerFilter=(sed -e "s# -c \\(${ignoredContainerBranches}\\)\\( \\|\$\\)#\\2#")
+    containerFilter=(sed -e "s# -c \\(${ignoredContainerBranches}\\) [^ ]\+\\( \\|\$\\)#\\2#")
 fi
 
 getAllPodContainerNames()
 {
-    local -r SELECTOR='{{.metadata.name}}{{range .spec.containers}} -c {{.name}}{{end}}{{"\n"}}'
+    if [ "$filterContainer" ]; then
+	local -r SELECTOR='{{.metadata.name}}{{range .spec.containers}}{{if eq .name "'"$filterContainer"'"}} -c {{.name}}{{end}}{{end}}{{"\n"}}'
+    else
+	local -r SELECTOR='{{.metadata.name}}{{range .spec.containers}} -c {{.name}}{{end}}{{"\n"}}'
+    fi
     kubectl get pods "$@" -o go-template --template "{{if .items}}{{range .items}}{{if not .status.reason}}${SELECTOR}{{end}}{{end}}{{else}}${SELECTOR}{{end}}"
 }
 
-eval 'getAllPodContainerNames "$@"' "${filter:+|}" '"${filter[@]}"' "${containerFilter:+|}" '"${containerFilter[@]}"'
+eval 'getAllPodContainerNames "$@"' \
+    "${podFilter:+|}" '"${podFilter[@]}"' \
+    "${containerFilter:+|}" '"${containerFilter[@]}"' \
+    "${singleResultFilter:+|}" '"${singleResultFilter[@]}"' \
+    "${finalFilter:+|}" '"${finalFilter[@]}"'
+    # Output format is single-line per Pod without separating empty lines; no need for emptyFilter here.

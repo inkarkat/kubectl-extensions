@@ -6,15 +6,24 @@ printUsage()
     cat <<HELPTEXT
 Query GO-TEMPLATE for PODs [matching EXPR] [of container CONTAINER-NAME].
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'GO-TEMPLATE [KUBECTL-ARGS ...] [-- EXPR] [-c CONTAINER-NAME] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" 'GO-TEMPLATE [KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER-NAME] [-?|-h|--help]'
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
 queryItem=${1:?}; shift
+
+typeset -a emptyFilter=(sed
+    -e '/^  [^ ]\+/{ N; /\n$/d }'
+    # Also suppress the final empty line. Note: The filter has to come last so
+    # that the previous filters can still indiscriminately use an empty line as
+    # the block separator without a special case of the last line.
+    -e '${ /^$/d }'
+)
+
 typeset -a singleResultFilter=()
-typeset -a finalFilter=(sed -e 's#\t#\n#g')
+typeset -a finalFilter=(sed -e 's#^\([^[:space:]]\+\)\t#\1:\n#' -e 's#\t#\n#g')
 
 filterContainer=
 if [ $# -ge 2 ] && [ "${*:(-2):1}" = '-c' ]; then
@@ -48,4 +57,8 @@ getAllPodImages()
     kubectl get pods "$@" -o go-template --template "{{if .items}}{{range .items}}${SELECTOR}{{end}}{{else}}${SELECTOR}{{end}}"
 }
 
-eval 'getAllPodImages "$@"' "${podFilter:+|}" '"${podFilter[@]}"'"${singleResultFilter:+|}" '"${singleResultFilter[@]}"' "${finalFilter:+|}" '"${finalFilter[@]}"'
+eval 'getAllPodImages "$@"' \
+    "${podFilter:+|}" '"${podFilter[@]}"' \
+    "${singleResultFilter:+|}" '"${singleResultFilter[@]}"' \
+    "${finalFilter:+|}" '"${finalFilter[@]}"' \
+    "${emptyFilter:+|}" '"${emptyFilter[@]}"'
