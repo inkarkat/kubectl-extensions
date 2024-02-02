@@ -4,11 +4,11 @@ set -o pipefail
 printUsage()
 {
     cat <<HELPTEXT
-List the mounts of each container [of container CONTAINER-NAME] for PODs
-[matching EXPR].
+List the mounts of each container [of container CONTAINER] for PODs [matching
+EXPR].
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER-NAME|''] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER|''] [-?|-h|--help]"
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -31,7 +31,7 @@ typeset -a finalFilter=(sed \
     -e 's#\t#\n#g'
 )
 
-filterContainer=
+filterContainer="$KUBECTL_DEFAULT_CONTAINER"
 if [ $# -ge 2 ] && [ "${*:(-2):1}" = '-c' ]; then
     filterContainer="${!#}"
     set -- "${@:1:$(($#-2))}"

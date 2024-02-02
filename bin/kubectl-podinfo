@@ -25,7 +25,7 @@ typeset -a emptyFilter=(sed
 typeset -a singleResultFilter=()
 typeset -a finalFilter=(sed -e 's#^\([^[:space:]]\+\)\t#\1:\n#' -e 's#\t#\n#g')
 
-filterContainer=
+filterContainer="$KUBECTL_DEFAULT_CONTAINER"
 if [ $# -ge 2 ] && [ "${*:(-2):1}" = '-c' ]; then
     filterContainer="${!#}"
     set -- "${@:1:$(($#-2))}"
