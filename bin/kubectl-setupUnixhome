@@ -8,8 +8,7 @@ printUsage()
 {
     cat <<HELPTEXT
 Setup / refresh / bootstrap the links for the Unixhome repository from the
-Kubernetes host into the POD (or matching POD-PATTERN) [of container
-CONTAINER-NAME].
+Kubernetes host into the POD (or matching POD-PATTERN) [of container CONTAINER].
 HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[KUBECTL-ARGS] POD[-PATTERN] [-c CONTAINER] [--bootstrap] [--check|--nobackup|--backup BACKUPDIR] [-v|--verbose [-v|--verbose]|-q|--quiet] [-?|-h|--help]'
 }

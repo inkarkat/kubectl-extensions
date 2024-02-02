@@ -4,9 +4,9 @@ set -o pipefail
 printUsage()
 {
     cat <<HELPTEXT
-Query GO-TEMPLATE for PODs [matching EXPR] [of container CONTAINER-NAME].
+Query GO-TEMPLATE for PODs [matching EXPR] [of container CONTAINER].
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'GO-TEMPLATE [KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER-NAME] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "GO-TEMPLATE [KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER|''] [-?|-h|--help]"
 }
 case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
@@ -25,14 +25,13 @@ typeset -a emptyFilter=(sed
 typeset -a singleResultFilter=()
 typeset -a finalFilter=(sed -e 's#^\([^[:space:]]\+\)\t#\1:\n#' -e 's#\t#\n#g')
 
-filterContainer=
+filterContainer="$KUBECTL_DEFAULT_CONTAINER"
 if [ $# -ge 2 ] && [ "${*:(-2):1}" = '-c' ]; then
-    filterContainer=${!#}
+    filterContainer="${!#}"
     set -- "${@:1:$(($#-2))}"
-
-    # Omit PODs that don't have any matching queryItems.
-    finalFilter=(sed -e '/^[^\t]\+\t$/d')
 fi
+# Omit PODs that don't have any matching queryItems.
+[ -z "$filterContainer" ] || finalFilter=(sed -e '/^[^\t]\+\t$/d')
 
 typeset -a podFilter=()
 if [ $# -ge 2 ] && [ "${*:(-2):1}" = -- ]; then
@@ -48,7 +47,7 @@ fi
 
 getAllPodImages()
 {
-    if [ "$filterContainer" ]; then
+    if [ -n "$filterContainer" ]; then
 	local -r SELECTOR='{{if not .status.reason}}{{.metadata.name}}{{"\t"}}{{range .status.containerStatuses}}{{if eq .name "'"$filterContainer"'"}}'"$queryItem"'{{end}}{{end}}{{"\n"}}{{end}}'
     else
 	local -r SELECTOR='{{if not .status.reason}}{{.metadata.name}}{{"\t"}}{{range .status.containerStatuses}}    {{.name}} '"$queryItem"'{{"\t"}}{{end}}{{"\n"}}{{end}}'
