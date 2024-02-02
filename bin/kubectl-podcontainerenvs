@@ -14,7 +14,7 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
-typeset -a emptyEnvFilter=(sed
+typeset -a emptyFilter=(sed
     -e '/^  [^ ]\+/{ N; /\n$/d }'
     # Also suppress the final empty line. Note: The filter has to come last so
     # that the previous filters can still indiscriminately use an empty line as
@@ -73,4 +73,4 @@ eval 'getAllPodContainerEnvironments "$@"' \
     "${containerFilter:+|}" '"${containerFilter[@]}"' \
     "${singleResultFilter:+|}" '"${singleResultFilter[@]}"' \
     "${finalFilter:+|}" '"${finalFilter[@]}"' \
-    "${emptyEnvFilter:+|}" '"${emptyEnvFilter[@]}"'
+    "${emptyFilter:+|}" '"${emptyFilter[@]}"'

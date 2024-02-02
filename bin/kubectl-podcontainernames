@@ -61,3 +61,4 @@ eval 'getAllPodContainerNames "$@"' \
     "${containerFilter:+|}" '"${containerFilter[@]}"' \
     "${singleResultFilter:+|}" '"${singleResultFilter[@]}"' \
     "${finalFilter:+|}" '"${finalFilter[@]}"'
+    # Output format is single-line per Pod without separating empty lines; no need for emptyFilter here.

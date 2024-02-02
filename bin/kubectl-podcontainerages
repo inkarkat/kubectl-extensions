@@ -14,8 +14,16 @@ case "$1" in
     --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
+typeset -a emptyFilter=(sed
+    -e '/^  [^ ]\+/{ N; /\n$/d }'
+    # Also suppress the final empty line. Note: The filter has to come last so
+    # that the previous filters can still indiscriminately use an empty line as
+    # the block separator without a special case of the last line.
+    -e '${ /^$/d }'
+)
+
 typeset -a singleResultFilter=()
-typeset -a finalFilter=(sed -e 's#\t#:\n#' -e 's#\t#\n#g')
+typeset -a finalFilter=(sed -e 's#^\([^[:space:]]\+\)\t#\1:\n#' -e 's#\t#\n#g')
 
 filterContainer=
 if [ $# -ge 2 ] && [ "${*:(-2):1}" = '-c' ]; then
@@ -59,4 +67,5 @@ eval 'getAllPodContainerStartTimes "$@"' \
     "${podFilter:+|}" '"${podFilter[@]}"' \
     "${containerFilter:+|}" '"${containerFilter[@]}"' \
     "${singleResultFilter:+|}" '"${singleResultFilter[@]}"' \
-    "${finalFilter:+|}" '"${finalFilter[@]}"'
+    "${finalFilter:+|}" '"${finalFilter[@]}"' \
+    "${emptyFilter:+|}" '"${emptyFilter[@]}"'
