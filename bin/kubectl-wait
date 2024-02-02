@@ -11,7 +11,7 @@ execute the kubectl SUBCOMMAND with the POD -c CONTAINER arguments then]. With
 --no-initial-wait, only starts waiting after the currently running POD goes
 down.
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-W|--no-initial-wait] [-n|--namespace NAMESPACE] POD[-PATTERN] [-c CONTAINER] [SUBCOMMAND ...] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[-W|--no-initial-wait] [-n|--namespace NAMESPACE] POD[-PATTERN] [-c CONTAINER|''] [SUBCOMMAND ...] [-?|-h|--help]"
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-W|--no-initial-wait] [-n|--namespace NAMESPACE] [SUBCOMMAND ...] -- POD[-PATTERN]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-W|--no-initial-wait] [-n|--namespace NAMESPACE] [SUBCOMMAND ...] [--] POD[-PATTERN] -c CONTAINER'
 }
@@ -34,6 +34,7 @@ case "$1" in
 esac
 [ $# -eq 0 ] && { printUsage "$0" >&2; exit 2; }
 
+container="$KUBECTL_DEFAULT_CONTAINER"
 if [ "${*:(-2):1}" = '-c' ]; then
     # [SUBCOMMAND ...] [--] POD -c CONTAINER
     podPattern="${*:(-3):1}"

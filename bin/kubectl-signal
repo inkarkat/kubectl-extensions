@@ -8,9 +8,9 @@ Send a signal (default TERM) to the entrypoint process / process(es) matching
 PATTERN in a container.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" 'POD [-c CONTAINER] [-SIGNAL|--signal SIGNAL [--wait]] [[PKILL-ARGS ...] PATTERN] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "POD [-c CONTAINER|''] [-SIGNAL|--signal SIGNAL [--wait]] [[PKILL-ARGS ...] PATTERN] [-?|-h|--help]"
     printf 'Usage: %q %s\n' "$(basename "$1")" '[flags] [-SIGNAL|--signal SIGNAL [--wait]] [[PKILL-ARGS ...] PATTERN] -- POD'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[flags] [-SIGNAL|--signal SIGNAL [--wait]] [[PKILL-ARGS ...] PATTERN] [--] POD [-c CONTAINER]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[flags] [-SIGNAL|--signal SIGNAL [--wait]] [[PKILL-ARGS ...] PATTERN] [--] POD [-c CONTAINER|'']"
 }
 
 typeset -a kubectlNamespaceArgs=()
@@ -46,6 +46,7 @@ done
 set -- "${otherArgs[@]}" "$@"
 [ $# -eq 0 ] && { printUsage "$0" >&2; exit 2; }
 
+container="$KUBECTL_DEFAULT_CONTAINER"
 if [ "${*:(-2):1}" = '-c' ]; then
     # [flags] [PATTERN] [--] POD -c CONTAINER
     pod="${*:(-3):1}"
