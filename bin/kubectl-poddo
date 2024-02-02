@@ -9,7 +9,7 @@ printUsage()
 {
     cat <<HELPTEXT
 Execute SIMPLECOMMAND and/or COMMANDLINE on each passed POD (or matching
-POD-PATTERN) [of container CONTAINER-NAME].
+POD-PATTERN) [of container CONTAINER].
 HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[KUBECTL-ARGS] [--command "COMMANDLINE" [--command ...]] POD[-PATTERN] [-c CONTAINER] [-- SIMPLECOMMAND ...] [-?|-h|--help]'
 }

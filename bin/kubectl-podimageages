@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--relative-date] [-v|--verbose] [KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER-NAME] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[-r|--relative-date] [-v|--verbose] [KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER|''] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -20,7 +20,7 @@ printLongUsage()
     # It is printed to stdout to allow paging with 'more'.
     cat <<HELPDESCRIPTION
 List the image creation dates of containers running in PODs [matching EXPR] [of
-container CONTAINER-NAME].
+container CONTAINER].
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
