@@ -14,7 +14,7 @@ esac
 
 queryItem=${1:?}; shift
 typeset -a singleResultFilter=()
-typeset -a finalFilter=(sed -e 's#\t#\n#g')
+typeset -a finalFilter=(sed -e 's#\t#:\n#' -e 's#\t#\n#g')
 
 filterContainer=
 if [ $# -ge 2 ] && [ "${*:(-2):1}" = '-c' ]; then
