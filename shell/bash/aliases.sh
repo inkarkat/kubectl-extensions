@@ -89,7 +89,7 @@ _kubectlExtensionSubcommands()
 # added.
 _kubectlVariantWrapper()
 {
-    if [ ${#COMP_WORDS[@]} -eq 2 ]; then
+    if [ $COMP_CWORD -eq 1 ]; then
 	_kubectlExtensionSubcommands "$@"
     else
 	_kubectlWrapper "$@"
