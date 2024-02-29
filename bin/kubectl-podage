@@ -1,17 +1,52 @@
 #!/bin/bash
 set -o pipefail
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]] [KUBECTL-ARGS ...] [POD-NAME ...] [-- POD-PATTERN] [-?|-h|--help]"
+}
 printUsage()
 {
-    cat <<HELPTEXT
-List the PODs [matching EXPR] by age (descending, starting with oldest).
-HELPTEXT
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[KUBECTL-ARGS ...] [POD-NAME ...] [-- POD-PATTERN] [-?|-h|--help]"
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+List the PODs [matching EXPR] by age (descending, starting with oldest).
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]
+			Only print those PODs that match the age comparison.
+SUFFIX may be 's' for seconds (the default), 'm' for minutes, 'h' for hours, 'd'
+for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
+HELPTEXT
+}
+
+typeset -a ageFilter=()
+typeset -a kubectlArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
+			ageFilter=(filterAge "$1" "$2"); shift; shift
+			kubectlArgs+=(--output=custom-columns='timestamp:.metadata.creationTimestamp,NAME:.metadata.name,READY:.status.containerStatuses[*].ready,STATUS:.status.phase,RESTARTS:.status.containerStatuses[].restartCount,AGE:.metadata.creationTimestamp')
+			;;
+	--)		kubectlArgs+=("$1"); shift; break;;
+	*)		kubectlArgs+=("$1"); shift;;
+    esac
+done
+set -- "${kubectlArgs[@]}" "$@"
 
 typeset -a filter=()
 if [ $# -ge 2 ] && [ "${*:(-2):1}" = -- ]; then
@@ -19,9 +54,38 @@ if [ $# -ge 2 ] && [ "${*:(-2):1}" = -- ]; then
     set -- "${@:1:$(($#-2))}"
 fi
 
+# XXX: With --output=custom-columns, the creation date always is an ISO-8601
+# timestamp, and the ready value is a list of boolean values, e.g. false/true
+# instead of 1/2. There's apparently no way to obtain the default output format;
+# cp. https://stackoverflow.com/a/67668158/813602
+# I can transform the timestamp into a Unix epoch via fieldNormalizeDate, and
+# also translate it back into a relative age with reldate.
+# For the counts, I need a custom AWK function for use with fieldMap.
+readonly awkCountsFunction='counts(boolList,      trueCount, l, arr, i) {
+    l = split(boolList, arr, ",")
+    for (i = 1; i <= l; ++i) {
+	if (arr[i] == "true") ++trueCount
+    }
+    return trueCount "/" l
+}
+'
+
+filterByAge()
+{
+     firstRestLines \
+	    --first-exec field --remove 1 \; \
+	    --rest-exec fieldNormalizeDate 1 --format '%s' \; \
+	    --rest-exec fieldMap --function "$awkCountsFunction" 3 'counts($fieldNr)' \; \
+	    --rest-exec "${ageFilter[@]}" \; \
+	| column -t \
+	| reldate --short --no-direction
+}
+
 getPodsByAge()
 {
     kubectl get pods --sort-by=.metadata.creationTimestamp "$@"
 }
 
-eval 'getPodsByAge "$@"' "${filter:+|}" '"${filter[@]}"'
+eval 'getPodsByAge "$@"' \
+    "${ageFilter:+ | filterByAge}" \
+    "${filter:+|}" '"${filter[@]}"'
