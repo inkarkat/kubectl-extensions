@@ -1,0 +1,19 @@
+#!/bin/bash
+
+: ${KUBECTLPODRECENT_AGE:=2w}
+
+printUsage()
+{
+    cat <<HELPTEXT
+List recently (less than $KUBECTLPODRECENT_AGE) created PODs [matching EXPR] by age (descending,
+starting with oldest).
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[KUBECTL-ARGS ...] [POD-NAME ...] [-- POD-PATTERN] [-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+exec kubectl-podage --newer "$KUBECTLPODRECENT_AGE" "$@"
