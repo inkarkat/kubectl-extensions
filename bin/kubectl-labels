@@ -1,0 +1,59 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Show unique label names and values.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '(TYPE[.VERSION][.GROUP] [NAME | -l label] | TYPE[.VERSION][.GROUP]/NAME ...) [KUBECTL-ARGS ...] [-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
+Show unique label names.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--names (TYPE[.VERSION][.GROUP] [NAME | -l label] | TYPE[.VERSION][.GROUP]/NAME ...) [KUBECTL-ARGS ...] [-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
+Show unique label values.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--values (TYPE[.VERSION][.GROUP] [NAME | -l label] | TYPE[.VERSION][.GROUP]/NAME ...) [KUBECTL-ARGS ...] [-?|-h|--help]'
+    echo
+    cat <<HELPTEXT
+Show unique label values of label with LABEL-NAME.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--values-of LABEL-NAME (TYPE[.VERSION][.GROUP] [NAME | -l label] | TYPE[.VERSION][.GROUP]/NAME ...) [KUBECTL-ARGS ...] [-?|-h|--help]'
+}
+
+SELECTOR='{{range $key, $value := .metadata.labels}}{{$key}}{{"\t"}}{{$value}}{{"\n"}}{{end}}'
+typeset -a columnizer=(column -s $'\t' -t)
+typeset -a kubectlNamespaceArgs=()
+typeset -a kubectlArgs=()
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--all-namespaces|-A)
+			kubectlNamespaceArgs+=("$1"); shift;;
+	--namespace|-n|--selector|-l|--cluster|--context|--template)
+			kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
+
+	--names)	shift; SELECTOR='{{range $key, $value := .metadata.labels}}{{$key}}{{"\n"}}{{end}}'; columnizer=();;
+	--values)	shift; SELECTOR='{{range $key, $value := .metadata.labels}}{{$value}}{{"\n"}}{{end}}'; columnizer=();;
+	--values-of)	shift; SELECTOR="{{index .metadata.labels \"${1:?}\"}}{{\"\\n\"}}"; shift; columnizer=();;
+	--)		shift; break;;
+	*)		kubectlArgs+=("$1"); shift;;
+    esac
+done
+
+
+getAllLabels()
+{
+    kubectl "${kubectlNamespaceArgs[@]}" get "${kubectlArgs[@]}" -o go-template --template "{{if .items}}{{range .items}}${SELECTOR}{{end}}{{else}}${SELECTOR}{{end}}" "$@"
+}
+
+getAllLabels "$@" \
+    | eval 'sort --unique' \
+    "${columnizer:+|}" '"${columnizer[@]}"'
