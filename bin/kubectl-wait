@@ -2,6 +2,7 @@
 set -o pipefail
 
 : ${KUBECTL_WAIT_MAX_UPTIME_IN_SECONDS_FOR_NEWNESS=60}
+: ${KUBECTL_WAIT_INTERVAL=1s}
 
 printUsage()
 {
@@ -234,7 +235,7 @@ do
 	| parse "$isFirst" "$@"
     status=$?
     case $status in
-	0)  sleep 3s;;
+	0)  sleep "$KUBECTL_WAIT_INTERVAL";;
 	99) exit 0;;
 	*)  exit $status;;
     esac
