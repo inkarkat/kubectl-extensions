@@ -175,13 +175,15 @@ parse()
 
     : "${containerArg:?}" "${container:?}" "${startTimeOrState:?}"
     if ! startEpoch=$(date --date "$startTimeOrState" +%s 2>/dev/null); then
-	read -r lastState lastDate < "$lastStateFilespec"
+	read -r firstRestartCount lastState lastDate < "$lastStateFilespec"
+	local restartCountDelta=$((restartCount - ${firstRestartCount:-$restartCount}))
+	local restartNote=''; [ $restartCountDelta -gt 0 ] && restartNote="$restartCountDelta while waiting"
 
 	if [ "$lastState" = "$startTimeOrState" -a "$lastDate" ]; then
-	    spinningprintf "$isFirst" '%s -c %s (%d restarts) has been in status %s %s.' "$pod" "$container" "$restartCount" "$startTimeOrState" "$(showDuration "$lastDate")"
+	    spinningprintf "$isFirst" '%s -c %s (%d restarts%s) has been in status %s %s.' "$pod" "$container" "$restartCount" "${restartNote:+; }${restartNote}" "$startTimeOrState" "$(showDuration "$lastDate")"
 	else
-	    printf >&2 '%s %s\n' "$startTimeOrState" "$(date --utc +%FT%TZ)" > "$lastStateFilespec"
-	    spinningprintf "$isFirst" '%s -c %s (%d restarts) is currently in status %s.' "$pod" "$container" "$restartCount" "$startTimeOrState"
+	    printf >&2 '%d %s %s\n' ${firstRestartCount:-$restartCount} "$startTimeOrState" "$(date --utc +%FT%TZ)" > "$lastStateFilespec"
+	    spinningprintf "$isFirst" '%s -c %s (%d restarts%s) is currently in status %s.' "$pod" "$container" "$restartCount" "${restartNote:+; }${restartNote}" "$startTimeOrState"
 	fi
 
 	return 0
