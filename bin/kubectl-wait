@@ -63,10 +63,10 @@ typeset -a podFilter=(grep -e "^[^ ]*$podPattern")
 : ${KUBECTL_IGNORE_CONTAINERNAMES='\(kubernetes-\)\?vault-renew'}
 typeset -a containerFilter=()
 if [ -n "$container" ]; then
-    containerFilter=(sed -e "s#\\( -c [^ ]\\+ [^ ]\\+\\)*\\( -c ${container} [^ ]\\+\\)\\( -c [^ ]\\+ [^ ]\\+\\)*\$#\\2#")
+    containerFilter=(sed -e "s#\\( -c [^ ]\\+ [0-9]\\+ [^ ]\\+\\)*\\( -c ${container} [0-9]\\+ [^ ]\\+\\)\\( -c [^ ]\\+ [0-9]\\+ [^ ]\\+\\)*\$#\\2#")
 elif [ "$KUBECTL_IGNORE_CONTAINERNAMES" ]; then
     ignoredContainerBranches="${KUBECTL_IGNORE_CONTAINERNAMES// /\\|}"
-    containerFilter=(sed -e "s# -c \\(${ignoredContainerBranches}\\) [^ ]\\+##")
+    containerFilter=(sed -e "s# -c \\(${ignoredContainerBranches}\\) [0-9]\\+ [^ ]\\+##")
 fi
 
 if type -t reldate > /dev/null; then
@@ -125,7 +125,7 @@ printErrorResults()
 
 getPodContainerStartTimes()
 {
-    local -r SELECTOR='{{.metadata.name}}{{range .status.containerStatuses}} -c {{.name}} {{if .state.running}}{{.state.running.startedAt}}{{else}}{{ range $key, $value := .state }}{{$key}}{{end}}{{end}}{{end}}{{"\n"}}'
+    local -r SELECTOR='{{.metadata.name}}{{range .status.containerStatuses}} -c {{.name}} {{.restartCount}} {{if .state.running}}{{.state.running.startedAt}}{{else}}{{ range $key, $value := .state }}{{$key}}{{end}}{{end}}{{end}}{{"\n"}}'
     kubectl get pods "$@" -o go-template --template "{{if .items}}{{range .items}}${SELECTOR}{{end}}{{else}}${SELECTOR}{{end}}"
 }
 parse()
@@ -143,7 +143,7 @@ parse()
 	local r
 	for r in "${results[@]}"
 	do
-	    read -r pod containerArg container startTimeOrState _ <<< "$r"
+	    read -r pod containerArg container restartCount startTimeOrState _ <<< "$r"
 	    [ "$startTimeOrState" ] || continue
 	    date --date "$startTimeOrState" +%s >/dev/null 2>&1 && runningResults+=("$r")
 	done
@@ -160,28 +160,30 @@ parse()
     fi
 
     local startEpoch
-    read -r pod containerArg container startTimeOrState _ <<< "${results[0]}"
+    read -r pod containerArg container restartCount startTimeOrState _ <<< "${results[0]}"
 
     : "${pod:?}"
     if [ -z "$startTimeOrState" ]; then
 	local phase="$(kubectl "${kubectlNamespaceArgs[@]}" get pod "$pod" -o go-template --template '{{.state.phase}}')"
 	if [ "$phase" ]; then
-	    spinningprintf "$isFirst" '%s is currently in phase %s.' "$pod" "$phase"
+	    spinningprintf "$isFirst" '%s (%d restarts) is currently in phase %s.' "$pod" "$restartCount" "$phase"
 	else
-	    spinningprintf "$isFirst" '%s currently has an unknown status.' "$pod"
+	    spinningprintf "$isFirst" '%s (%d restarts) currently has an unknown status.' "$pod" "$restartCount"
 	fi
 	return 0
     fi
 
     : "${containerArg:?}" "${container:?}" "${startTimeOrState:?}"
     if ! startEpoch=$(date --date "$startTimeOrState" +%s 2>/dev/null); then
-	read -r lastState lastDate < "$lastStateFilespec"
+	read -r firstRestartCount lastState lastDate < "$lastStateFilespec"
+	local restartCountDelta=$((restartCount - ${firstRestartCount:-$restartCount}))
+	local restartNote=''; [ $restartCountDelta -gt 0 ] && restartNote="$restartCountDelta while waiting"
 
 	if [ "$lastState" = "$startTimeOrState" -a "$lastDate" ]; then
-	    spinningprintf "$isFirst" '%s -c %s has been in status %s %s.' "$pod" "$container" "$startTimeOrState" "$(showDuration "$lastDate")"
+	    spinningprintf "$isFirst" '%s -c %s (%d restarts%s) has been in status %s %s.' "$pod" "$container" "$restartCount" "${restartNote:+; }${restartNote}" "$startTimeOrState" "$(showDuration "$lastDate")"
 	else
-	    printf >&2 '%s %s\n' "$startTimeOrState" "$(date --utc +%FT%TZ)" > "$lastStateFilespec"
-	    spinningprintf "$isFirst" '%s -c %s is currently in status %s.' "$pod" "$container" "$startTimeOrState"
+	    printf >&2 '%d %s %s\n' ${firstRestartCount:-$restartCount} "$startTimeOrState" "$(date --utc +%FT%TZ)" > "$lastStateFilespec"
+	    spinningprintf "$isFirst" '%s -c %s (%d restarts%s) is currently in status %s.' "$pod" "$container" "$restartCount" "${restartNote:+; }${restartNote}" "$startTimeOrState"
 	fi
 
 	return 0
@@ -191,12 +193,12 @@ parse()
     local uptimeInSeconds=$((now - startEpoch))
 
     if [ $uptimeInSeconds -gt $KUBECTL_WAIT_MAX_UPTIME_IN_SECONDS_FOR_NEWNESS ]; then
-	spinningprintf "$isFirst" '%s -c %s is not yet down (started %s).' "$pod" "$container" "$(showDate "$startTimeOrState")"
+	spinningprintf "$isFirst" '%s -c %s (%d restarts) is not yet down (started %s).' "$pod" "$container" "$restartCount" "$(showDate "$startTimeOrState")"
 	return 0
     fi
 
     uptimePlural=s; [ $uptimeInSeconds -eq 1 ] && uptimePlural=
-    statusprintf "$isFirst" '%s -c %s started %d second%s ago.' "$pod" "$container" "$uptimeInSeconds" "$uptimePlural"
+    statusprintf "$isFirst" '%s -c %s (%d restarts) started %d second%s ago.' "$pod" "$container" "$restartCount" "$uptimeInSeconds" "$uptimePlural"
     [ $# -gt 0 ] || exit 99
 
     # Some kubectl commands (e.g. exec -it) need to read from stdin; restore it.
