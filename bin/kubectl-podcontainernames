@@ -42,7 +42,7 @@ fi
 typeset -a containerFilter=()
 if [ "$KUBECTL_IGNORE_CONTAINERNAMES" ]; then
     ignoredContainerBranches="${KUBECTL_IGNORE_CONTAINERNAMES// /\\|}"
-    containerFilter=(sed -e "s# -c \\(${ignoredContainerBranches}\\) [^ ]\+\\( \\|\$\\)#\\2#")
+    containerFilter=(sed -e "s# -c \\(${ignoredContainerBranches}\\)\\( \\|\$\\)# #" -e 's# $##')
 fi
 
 getAllPodContainerNames()
