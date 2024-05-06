@@ -66,7 +66,7 @@ if [ -n "$container" ]; then
     containerFilter=(sed -e "s#\\( -c [^ ]\\+ [^ ]\\+\\)*\\( -c ${container} [^ ]\\+\\)\\( -c [^ ]\\+ [^ ]\\+\\)*\$#\\2#")
 elif [ "$KUBECTL_IGNORE_CONTAINERNAMES" ]; then
     ignoredContainerBranches="${KUBECTL_IGNORE_CONTAINERNAMES// /\\|}"
-    containerFilter=(sed -e "s# -c \\(${ignoredContainerBranches}\\) [^ ]\\+\\( \\|\$\\)#\\2#")
+    containerFilter=(sed -e "s# -c \\(${ignoredContainerBranches}\\) [^ ]\\+##")
 fi
 
 if type -t reldate > /dev/null; then
