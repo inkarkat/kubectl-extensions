@@ -8,20 +8,15 @@ if [ $# -ge 2 ] && [ "${*:(-2):1}" = -- ]; then
     set -- "${@:1:$(($#-2))}"
 fi
 
-: ${KUBECTL_IGNORE_CONTAINERNAMES='\(kubernetes-\)\?vault-renew'}
-typeset -a containerFilter=()
-if [ "$KUBECTL_IGNORE_CONTAINERNAMES" ]; then
-    ignoredContainerBranches="${KUBECTL_IGNORE_CONTAINERNAMES// /\\|}"
-    containerFilter=(sed -e "s# -c \\(${ignoredContainerBranches}\\)\\( \\|\$\\)#\\2#")
-fi
-
 getAllPodContainerIPs()
 {
     local -r SELECTOR='{{.metadata.name}}{{"\t"}}{{.status.podIP}}{{"\n"}}'
     kubectl get pods "$@" -o go-template --template "{{if .items}}{{range .items}}{{if not .status.reason}}${SELECTOR}{{end}}{{end}}{{else}}${SELECTOR}{{end}}"
 }
 
-eval 'getAllPodContainerIPs "$@"' "${filter:+|}" '"${filter[@]}"' "${containerFilter:+|}" '"${containerFilter[@]}"' | awk -F '\t' '
+eval 'getAllPodContainerIPs "$@"' \
+    "${filter:+|}" '"${filter[@]}"' \
+    | awk -F '\t' '
 {
     if (NR > 1)
 	print prev
