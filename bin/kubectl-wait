@@ -62,7 +62,7 @@ fi
 typeset -a podFilter=(grep -e "^[^ ]*$podPattern")
 : ${KUBECTL_IGNORE_CONTAINERNAMES='\(kubernetes-\)\?vault-renew'}
 typeset -a containerFilter=()
-if [ "$container" ]; then
+if [ -n "$container" ]; then
     containerFilter=(sed -e "s#\\( -c [^ ]\\+ [^ ]\\+\\)*\\( -c ${container} [^ ]\\+\\)\\( -c [^ ]\\+ [^ ]\\+\\)*\$#\\2#")
 elif [ "$KUBECTL_IGNORE_CONTAINERNAMES" ]; then
     ignoredContainerBranches="${KUBECTL_IGNORE_CONTAINERNAMES// /\\|}"
@@ -143,7 +143,7 @@ parse()
 	local r
 	for r in "${results[@]}"
 	do
-	    read -r pod containerArg container startTimeOrState remainder <<< "$r"
+	    read -r pod containerArg container startTimeOrState _ <<< "$r"
 	    [ "$startTimeOrState" ] || continue
 	    date --date "$startTimeOrState" +%s >/dev/null 2>&1 && runningResults+=("$r")
 	done
@@ -160,10 +160,10 @@ parse()
     fi
 
     local startEpoch
-    read -r pod containerArg container startTimeOrState remainder <<< "${results[0]}"
+    read -r pod containerArg container startTimeOrState _ <<< "${results[0]}"
 
     : "${pod:?}"
-    if [ ! "$startTimeOrState" ]; then
+    if [ -z "$startTimeOrState" ]; then
 	local phase="$(kubectl "${kubectlNamespaceArgs[@]}" get pod "$pod" -o go-template --template '{{.state.phase}}')"
 	if [ "$phase" ]; then
 	    spinningprintf "$isFirst" '%s is currently in phase %s.' "$pod" "$phase"
