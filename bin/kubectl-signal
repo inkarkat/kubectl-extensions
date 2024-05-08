@@ -1,16 +1,38 @@
 #!/bin/bash
 shopt -qs extglob
 
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" "POD [-c CONTAINER|''] [-SIGNAL|--signal SIGNAL [--wait]] [--all | [PKILL-ARGS ...] PATTERN] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[flags] [-SIGNAL|--signal SIGNAL [--wait]] [--all | [PKILL-ARGS ...] PATTERN] -- POD'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[flags] [-SIGNAL|--signal SIGNAL [--wait]] [--all | [PKILL-ARGS ...] PATTERN] [--] POD [-c CONTAINER|'']"
+}
 printUsage()
 {
-    cat <<HELPTEXT
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
 Send a signal (default TERM) to the entrypoint process / process(es) matching
 PATTERN in a container.
-HELPTEXT
+HELPDESCRIPTION
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "POD [-c CONTAINER|''] [-SIGNAL|--signal SIGNAL [--wait]] [[PKILL-ARGS ...] PATTERN] [-?|-h|--help]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[flags] [-SIGNAL|--signal SIGNAL [--wait]] [[PKILL-ARGS ...] PATTERN] -- POD'
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[flags] [-SIGNAL|--signal SIGNAL [--wait]] [[PKILL-ARGS ...] PATTERN] [--] POD [-c CONTAINER|'']"
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --all		Signal all currently existing processes in the
+			container.
+    --wait		Wait until the signal has been successfully sent (i.e.
+			until such a process is there).
+HELPTEXT
 }
 
 typeset -a kubectlNamespaceArgs=()
@@ -18,10 +40,12 @@ typeset -a pkillArgs=()
 typeset -a signalArgs=()
 typeset -a otherArgs=()
 pkillPattern=
+isAll=
 isWait=
 while [ $# -ne 0 ]
 do
     case "$1" in
+	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--all-namespaces|-A)
 			kubectlNamespaceArgs+=("$1"); shift;;
 	--namespace|-n|--selector|-l|--cluster|--context|--template)
@@ -35,8 +59,10 @@ do
 			pkillArgs+=("$1" "${2:?}"); shift; shift;;
 
 	--signal)	signalArgs+=("$1" "${2:?}"); shift; shift;;
-	-@(+([0-9])|?(SIG)+([A-Z])))
+	-@(+([0-9])|?(SIG)[A-Z]+([A-Z0-9])))
 			signalArgs+=("$1"); shift;;
+
+	--all)		shift; isAll=t;;
 	--wait)		shift; isWait=t;;
 
 	--)		break;;
@@ -44,7 +70,15 @@ do
     esac
 done
 set -- "${otherArgs[@]}" "$@"
-[ $# -eq 0 ] && { printUsage "$0" >&2; exit 2; }
+if [ $# -eq 0 ]; then
+    printUsage "$0"
+    exit 2
+elif [ "$isAll" ] && [ "$isWait" ]; then
+    echo 'ERROR: --all and --wait cannot be combined.'
+    echo
+    printUsage "$0"
+    exit 2
+fi >&2
 
 container="$KUBECTL_DEFAULT_CONTAINER"
 if [ "${*:(-2):1}" = '-c' ]; then
@@ -82,15 +116,29 @@ fi
 
 signalCommandErrorSuppression=
 if [ ${#pkillArgs[@]} -eq 0 -a -z "$pkillPattern" ]; then
-    typeset -a signalCommand=(kill "${signalArgs[@]}" 1)
-    signalCommandErrorSuppression='2>/dev/null'	# kill complains when the PID doesn't exist, which is suboptimal in a busy loop.
+    typeset -a signalCommand=(kill "${signalArgs[@]}")
+    if [ "$isAll" ]; then
+	printf -v quotedSignalCommand '%q ' "${signalCommand[@]}"
+	quotedSignalCommand="${quotedSignalCommand}\$(ps -e -o pid= | grep --invert-match --line-regexp \"[[:space:]]*\$\$\")"
+	typeset -a signalCommand=(sh -c "$quotedSignalCommand 2>/dev/null")
+    else
+	signalCommand+=(1)  # entrypoint process has PID 1
+	signalCommandErrorSuppression='2>/dev/null'	# kill complains when the PID doesn't exist, which is suboptimal in a busy loop.
+    fi
 else
+    if [ "$isAll" ]; then
+	echo 'ERROR: --all cannot be combined with [PKILL-ARGS ...] PATTERN'
+	echo
+	printUsage "$0"
+	exit 2
+    fi >&2
+
     [ -z "$pkillPattern" ] || pkillArgs+=("$pkillPattern")
     typeset -a signalCommand=(pkill "${signalArgs[@]}" "${pkillArgs[@]}")
 fi
 if [ "$isWait" ]; then
     printf -v quotedSignalCommand '%q ' "${signalCommand[@]}"
-    typeset -a signalCommand=(sh -c "until ${quotedSignalCommand%/}${signalCommandErrorSuppression:+}${signalCommandErrorSuppression}; do sleep 0.01; done")
+    typeset -a signalCommand=(sh -c "until ${quotedSignalCommand}${signalCommandErrorSuppression:+}${signalCommandErrorSuppression}; do sleep 0.01; done")
 fi
 
 exec kubectl-wrapper "${kubectlNamespaceArgs[@]}" exec "$@" "$pod" ${container:+-c "$container"} -- "${signalCommand[@]}"
