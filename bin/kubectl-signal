@@ -59,7 +59,7 @@ do
 			pkillArgs+=("$1" "${2:?}"); shift; shift;;
 
 	--signal)	signalArgs+=("$1" "${2:?}"); shift; shift;;
-	-@(+([0-9])|?(SIG)+([A-Z])))
+	-@(+([0-9])|?(SIG)[A-Z]+([A-Z0-9])))
 			signalArgs+=("$1"); shift;;
 
 	--all)		shift; isAll=t;;
