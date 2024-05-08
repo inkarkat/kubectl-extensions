@@ -7,9 +7,9 @@ Resume a suspended entrypoint process / process(es) matching PATTERN in a
 container.
 HELPTEXT
     echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" "POD [-c CONTAINER|''] [[PKILL-ARGS ...] PATTERN] [-?|-h|--help]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[flags] [[PKILL-ARGS ...] PATTERN] -- POD'
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[flags] [[PKILL-ARGS ...] PATTERN] [--] POD [-c CONTAINER|'']"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "POD [-c CONTAINER|''] [--wait] [[PKILL-ARGS ...] PATTERN] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[flags] [--wait] [[PKILL-ARGS ...] PATTERN] -- POD'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[flags] [--wait] [[PKILL-ARGS ...] PATTERN] [--] POD [-c CONTAINER|'']"
 }
 
 case "$1" in
