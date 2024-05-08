@@ -120,7 +120,7 @@ if [ ${#pkillArgs[@]} -eq 0 -a -z "$pkillPattern" ]; then
     if [ "$isAll" ]; then
 	printf -v quotedSignalCommand '%q ' "${signalCommand[@]}"
 	quotedSignalCommand="${quotedSignalCommand}\$(ps -e -o pid= | grep --invert-match --line-regexp \"[[:space:]]*\$\$\")"
-	typeset -a signalCommand=(sh -c "$quotedSignalCommand")
+	typeset -a signalCommand=(sh -c "$quotedSignalCommand 2>/dev/null")
     else
 	signalCommand+=(1)  # entrypoint process has PID 1
 	signalCommandErrorSuppression='2>/dev/null'	# kill complains when the PID doesn't exist, which is suboptimal in a busy loop.
