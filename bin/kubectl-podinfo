@@ -6,13 +6,23 @@ printUsage()
     cat <<HELPTEXT
 Query GO-TEMPLATE for PODs [matching EXPR] [of container CONTAINER].
 HELPTEXT
-    printf 'Usage: %q %s\n' "$(basename "$1")" "GO-TEMPLATE [KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER|''] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "GO-TEMPLATE [--no-podnames] [KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER|''] [-?|-h|--help]"
 }
-case "$1" in
-    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-esac
 
 queryItem=${1:?}; shift
+
+typeset -a kubectlArgs=()
+isIncludePodName=t
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--no-podnames)	shift; isIncludePodName=;;
+	--)		kubectlArgs+=("$1"); shift; break;;
+	*)		kubectlArgs+=("$1"); shift;;
+    esac
+done
+set -- "${kubectlArgs[@]}" "$@"
 
 typeset -a emptyFilter=(sed
     -e '/^  [^ ]\+/{ N; /\n$/d }'
@@ -23,15 +33,21 @@ typeset -a emptyFilter=(sed
 )
 
 typeset -a singleResultFilter=()
-typeset -a finalFilter=(sed -e 's#^\([^[:space:]]\+\)\t#\1:\n#' -e 's#\t#\n#g')
+[ "$isIncludePodName" ] \
+    && typeset -a finalFilter=(sed -e 's#^\([^[:space:]]\+\)\t#\1:\n#' -e 's#\t#\n#g') \
+    || typeset -a finalFilter=(sed -e 's#^[^[:space:]]\+\t    ##' -e 's#\t    #\n#g')
 
 filterContainer="$KUBECTL_DEFAULT_CONTAINER"
 if [ $# -ge 2 ] && [ "${*:(-2):1}" = '-c' ]; then
     filterContainer="${!#}"
     set -- "${@:1:$(($#-2))}"
 fi
-# Omit PODs that don't have any matching queryItems.
-[ -z "$filterContainer" ] || finalFilter=(sed -e '/^[^\t]\+\t$/d')
+# Omit PODs that don't have any matching queryItem.
+if [ -n "$filterContainer" ]; then
+    [ "$isIncludePodName" ] \
+	&& finalFilter=(sed -e '/^[^\t]\+\t$/d') \
+	|| finalFilter=(sed -e '/^[^[:space:]]\+\t$/d' -e 's#^[^[:space:]]\+\t##')
+fi
 
 typeset -a podFilter=()
 if [ $# -ge 2 ] && [ "${*:(-2):1}" = -- ]; then
@@ -39,10 +55,12 @@ if [ $# -ge 2 ] && [ "${*:(-2):1}" = -- ]; then
     podFilter=(grep -e "^[^ ]*$podFilterExpr")
     set -- "${@:1:$(($#-2))}"
 
-    # Omit POD prefix if there's only a single matching POD and it exactly
-    # matches the passed EXPR.
-    literalPodFilterExpr=$(printf %s "$podFilterExpr" | sed -e 's/[][\$*.^#]/\\&/g')
-    singleResultFilter=(sed -e '1!b' -e "\$s#^${literalPodFilterExpr}\\t##")
+    if [ ${#podNameFilter[@]} -eq 0 ]; then
+	# Omit POD prefix if there's only a single matching POD and it exactly
+	# matches the passed EXPR.
+	literalPodFilterExpr=$(printf %s "$podFilterExpr" | sed -e 's/[][\$*.^#]/\\&/g')
+	singleResultFilter=(sed -e '1!b' -e "\$s#^${literalPodFilterExpr}\\t##")
+    fi
 fi
 
 getAllPodImages()
@@ -60,4 +78,4 @@ eval 'getAllPodImages "$@"' \
     "${podFilter:+|}" '"${podFilter[@]}"' \
     "${singleResultFilter:+|}" '"${singleResultFilter[@]}"' \
     "${finalFilter:+|}" '"${finalFilter[@]}"' \
-    "${emptyFilter:+|}" '"${emptyFilter[@]}"'
+    "${emptyFilter:+|}" '"${emptyFilter[@]}"' \
