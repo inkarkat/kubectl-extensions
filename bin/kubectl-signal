@@ -27,7 +27,7 @@ do
 	--namespace|-n|--selector|-l|--cluster|--context|--template)
 			kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
 
-	-[cflanovwx]*)	pkillArgs+=("$1"); shift;;
+	-[flanovwx]*)	pkillArgs+=("$1"); shift;;
 	--@(count|full|list-name|list-full|newest|oldest|inverse|lightweight|exact))
 			pkillArgs+=("$1"); shift;;
 	-[dgGPstuUF])	pkillArgs+=("$1" "${2:?}"); shift; shift;;
