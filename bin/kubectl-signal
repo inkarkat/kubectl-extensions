@@ -1,13 +1,17 @@
 #!/bin/bash
 shopt -qs extglob
 
+: ${KUBECTL_SIGNAL_COMMAND_JOINER=;}
+: ${KUBECTL_SIGNAL_EXEC_END=;}
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "POD [-c CONTAINER|''] [-SIGNAL|--signal SIGNAL [--wait]] [--all | [PKILL-ARGS ...] PATTERN] [-?|-h|--help]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[flags] [-SIGNAL|--signal SIGNAL [--wait]] [--all | [PKILL-ARGS ...] PATTERN] -- POD'
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[flags] [-SIGNAL|--signal SIGNAL [--wait]] [--all | [PKILL-ARGS ...] PATTERN] [--] POD [-c CONTAINER|'']"
+    local commonArgs="[-SIGNAL|--signal SIGNAL [--wait]] [--command \"COMMANDLINE\" [...] | --exec SIMPLECOMMAND [...] ${KUBECTL_SIGNAL_EXEC_END} [--exec ...]] [--all | [PKILL-ARGS ...] PATTERN]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "POD [-c CONTAINER|''] $commonArgs [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[flags] $commonArgs -- POD"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[flags] $commonArgs [--] POD [-c CONTAINER|'']"
 }
 printUsage()
 {
@@ -32,6 +36,10 @@ HELPDESCRIPTION
 			container.
     --wait		Wait until the signal has been successfully sent (i.e.
 			until such a process is there).
+    --command CMD	Execute CMD as a command-line after signalling.
+    --exec CMD [...] ${KUBECTL_SIGNAL_EXEC_END}	Execute CMD after signalling; all following arguments
+			are taken to be arguments to the CMD until an argument
+			consisting of '${KUBECTL_SIGNAL_EXEC_END}' is encountered.
 HELPTEXT
 }
 
@@ -42,6 +50,7 @@ typeset -a otherArgs=()
 pkillPattern=
 isAll=
 isWait=
+commands=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -64,6 +73,23 @@ do
 
 	--all)		shift; isAll=t;;
 	--wait)		shift; isWait=t;;
+
+	--command)	shift; commands+="${commands:+ $KUBECTL_SIGNAL_COMMAND_JOINER }$1"; shift;;
+	--exec)		shift
+			cmd=
+			while [ $# -gt 0 -a "$1" != "$KUBECTL_SIGNAL_EXEC_END" ]
+			do
+			    printf -v quotedArg '%q' "$1"
+			    cmd+="${cmd:+ }${quotedArg}"
+			    shift
+			done
+			if [ $# -eq 0 ]; then
+			    echo "ERROR: --exec command must be concluded with '${KUBECTL_SIGNAL_EXEC_END}'"; echo; printUsage "$0"
+			    exit 2
+			fi >&2
+			shift
+			commands+="${commands:+ $KUBECTL_SIGNAL_COMMAND_JOINER }${cmd}"
+			;;
 
 	--)		break;;
 	*)		otherArgs+=("$1"); shift;;
@@ -120,7 +146,7 @@ if [ ${#pkillArgs[@]} -eq 0 -a -z "$pkillPattern" ]; then
     if [ "$isAll" ]; then
 	printf -v quotedSignalCommand '%q ' "${signalCommand[@]}"
 	quotedSignalCommand="${quotedSignalCommand}\$(ps -e -o pid= | grep --invert-match --line-regexp \"[[:space:]]*\$\$\")"
-	typeset -a signalCommand=(sh -c "$quotedSignalCommand 2>/dev/null")
+	signalCommand=(sh -c "$quotedSignalCommand 2>/dev/null")
     else
 	signalCommand+=(1)  # entrypoint process has PID 1
 	signalCommandErrorSuppression='2>/dev/null'	# kill complains when the PID doesn't exist, which is suboptimal in a busy loop.
@@ -136,9 +162,18 @@ else
     [ -z "$pkillPattern" ] || pkillArgs+=("$pkillPattern")
     typeset -a signalCommand=(pkill "${signalArgs[@]}" "${pkillArgs[@]}")
 fi
+
+printf -v quotedSignalCommand '%q ' "${signalCommand[@]}"
 if [ "$isWait" ]; then
-    printf -v quotedSignalCommand '%q ' "${signalCommand[@]}"
-    typeset -a signalCommand=(sh -c "until ${quotedSignalCommand}${signalCommandErrorSuppression:+}${signalCommandErrorSuppression}; do sleep 0.01; done")
+    signalCommand=(sh -c "until ${quotedSignalCommand}${signalCommandErrorSuppression:+}${signalCommandErrorSuppression}; do sleep 0.01; done")
+fi
+if [ -n "$commands" ]; then
+    # Turn into a shell command-line if not already done.
+    [ "${signalCommand[0]}" = 'sh' ] \
+	|| signalCommand=(sh -c "$quotedSignalCommand")
+
+    # Append custom command(s); don't use && as the kill may fail.
+    signalCommand[-1]+="; $commands"
 fi
 
 exec kubectl-wrapper "${kubectlNamespaceArgs[@]}" exec "$@" "$pod" ${container:+-c "$container"} -- "${signalCommand[@]}"
