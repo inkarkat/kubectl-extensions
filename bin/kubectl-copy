@@ -9,10 +9,10 @@ Copy all FILE(s) to/from DESTINATION in the passed POD(s) / Pod(s) matching SELE
 HELPTEXT
     echo
     printf 'Usage: %q %s\n' "$(basename "$1")" "--to|--from (-l|--selector SELECTOR|-p|--pod POD [-p ...]|--pods POD [...] ${KUBECTL_COPY_PODS_END}) [-c|--container CONTAINER] [--] FILE [...] DESTINATION [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "--to|--from POD [-c|--container CONTAINER] [--] FILE [...] DESTINATION"
 }
 
 direction=
-typeset -a kubectlArgs=()
 typeset -a kubectlNamespaceArgs=()
 typeset -a kubectlContainerArgs=()
 typeset -a kubectlSelectorArgs=()
@@ -47,7 +47,12 @@ do
 	--selector=*)	kubectlSelectorArgs+=("$1"); shift;;
 
 	--)		shift; break;;
-	*)		break;;
+	*)		if [ ${#pods[@]} -eq 0 ]; then
+			    pods+=("$1"); shift
+			else
+			    break
+			fi
+			;;
     esac
 done
 if [ -z "$direction" ]; then
