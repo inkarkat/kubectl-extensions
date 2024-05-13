@@ -201,7 +201,10 @@ parse()
     uptimePlural=s; [ $uptimeInSeconds -eq 1 ] && uptimePlural=
     statusprintf "$isFirst" '%s -c %s (%d restarts) started %d second%s ago.' "$pod" "$container" "$restartCount" "$uptimeInSeconds" "$uptimePlural"
     [ $# -gt 0 ] || exit 99
-
+    execute "$@"
+}
+execute()
+{
     # Some kubectl commands (e.g. exec -it) need to read from stdin; restore it.
     exec 0<&6
 
