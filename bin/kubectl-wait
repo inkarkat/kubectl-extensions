@@ -4,18 +4,37 @@ set -o pipefail
 : ${KUBECTL_WAIT_MAX_UPTIME_IN_SECONDS_FOR_NEWNESS=60}
 : ${KUBECTL_WAIT_INTERVAL=1s}
 
-printUsage()
+printShortUsage()
 {
-    cat <<HELPTEXT
-Wait until CONTAINER in POD (or matching POD-PATTERN) is running again [and
-execute the kubectl SUBCOMMAND with the POD -c CONTAINER arguments then]. With
---no-initial-wait, only starts waiting after the currently running POD goes
-down.
-HELPTEXT
-    echo
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" "[-W|--no-initial-wait] [-n|--namespace NAMESPACE] POD[-PATTERN] [-c CONTAINER|''] [SUBCOMMAND ...] [-?|-h|--help]"
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-W|--no-initial-wait] [-n|--namespace NAMESPACE] [SUBCOMMAND ...] -- POD[-PATTERN]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-W|--no-initial-wait] [-n|--namespace NAMESPACE] [SUBCOMMAND ...] [--] POD[-PATTERN] -c CONTAINER'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Wait until CONTAINER in POD (or matching POD-PATTERN) is running again [and
+execute the kubectl SUBCOMMAND with the POD -c CONTAINER arguments then].
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    echo
+    cat <<HELPTEXT
+    --no-initial-wait|-W
+			Immediately succeed if the POD is currently running; do
+			not wait until the currently running POD goes down.
+HELPTEXT
 }
 
 # Extract the --namespace argument; it may appear anywhere, so we need to go through all command-line arguments and filter them out.
@@ -32,9 +51,12 @@ done
 set -- "${allargs[@]}"
 
 case "$1" in
-    --help|-h|-\?)  shift; printUsage "$0"; exit 0;;
+    --help|-h|-\?)  shift; printLongUsage "$0"; exit 0;;
 esac
-[ $# -eq 0 ] && { printUsage "$0" >&2; exit 2; }
+if [ $# -eq 0 ]; then
+    printUsage "$0" >&2
+    exit 2
+fi
 
 container="$KUBECTL_DEFAULT_CONTAINER"
 if [ "${*:(-2):1}" = '-c' ]; then
