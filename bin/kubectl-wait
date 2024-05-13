@@ -1,5 +1,5 @@
 #!/bin/bash
-set -o pipefail
+set +o pipefail	# Only parse() determines success.
 
 : ${KUBECTL_WAIT_MAX_UPTIME_IN_SECONDS_FOR_NEWNESS=60}
 : ${KUBECTL_WAIT_INTERVAL=1s}
@@ -8,9 +8,10 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[-W|--no-initial-wait] [-n|--namespace NAMESPACE] POD[-PATTERN] [-c CONTAINER|''] [SUBCOMMAND ...] [-?|-h|--help]"
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-W|--no-initial-wait] [-n|--namespace NAMESPACE] [SUBCOMMAND ...] -- POD[-PATTERN]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-W|--no-initial-wait] [-n|--namespace NAMESPACE] [SUBCOMMAND ...] [--] POD[-PATTERN] -c CONTAINER'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-r|--wait-for-restart] [-W|--no-initial-wait] [-n|--namespace NAMESPACE] ... [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" "... POD[-PATTERN] [-c CONTAINER|''] [SUBCOMMAND ...]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [SUBCOMMAND ...] -- POD[-PATTERN]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [SUBCOMMAND ...] [--] POD[-PATTERN] -c CONTAINER'
 }
 printUsage()
 {
@@ -31,18 +32,23 @@ HELPDESCRIPTION
     printShortUsage "$1"
     echo
     cat <<HELPTEXT
+    --wait-for-restart|-r
+			Abort if POD / CONTAINER do not exist yet. By default,
+			we're also waiting for a POD to be created.
     --no-initial-wait|-W
 			Immediately succeed if the POD is currently running; do
 			not wait until the currently running POD goes down.
 HELPTEXT
 }
 
+isAllowNonexistentPods=t
 # Extract the --namespace argument; it may appear anywhere, so we need to go through all command-line arguments and filter them out.
 typeset -a kubectlNamespaceArgs=()
 typeset -a allargs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
+	--wait-for-restart|-r)	shift; isAllowNonexistentPods=;;
 	--no-initial-wait|-W)	shift; KUBECTL_WAIT_MAX_UPTIME_IN_SECONDS_FOR_NEWNESS=2147483647;;
 	--namespace|-n)		kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
 	*)			allargs+=("$1"); shift;;
@@ -159,8 +165,13 @@ parse()
     local IFS=' '
     if [ ${#results[@]} -eq 0 ]; then
 	printf -v kcCommand '%q ' kubectl get pods "${kubectlNamespaceArgs[@]}" ${podFilter:+|} "${podFilter[@]}" ${containerFilter:+|} "${containerFilter[@]}"
-	spinningprintf "$isFirst" 'ERROR: No results for %s' "${kcCommand// \\| / | }"
-	exit 1
+	if [ "$isAllowNonexistentPods" ]; then
+	    spinningprintf "$isFirst" 'No results for %s yet.' "${podPattern}${container:+ -c $container}"
+	    return 0
+	else
+	    spinningprintf "$isFirst" 'ERROR: No results for %s' "${kcCommand// \\| / | }"
+	    return 1
+	fi
     elif [ ${#results[@]} -gt 1 ]; then
 	typeset -a runningResults=()
 	local r
@@ -173,12 +184,12 @@ parse()
 
 	if [ ${#runningResults[@]} -eq 0 ]; then
 	    printErrorResults "ERROR: Multiple PODs match, but none is running:" "${results[@]%% *}"
-	    exit 1
+	    return 1
 	elif [ ${#runningResults[@]} -eq 1 ]; then
 	    results=("${runningResults[@]}")
 	else
 	    printErrorResults "ERROR: Multiple PODs are running:" "${runningResults[@]%% *}"
-	    exit 1
+	    return 1
 	fi
     fi
 
@@ -222,7 +233,7 @@ parse()
 
     uptimePlural=s; [ $uptimeInSeconds -eq 1 ] && uptimePlural=
     statusprintf "$isFirst" '%s -c %s (%d restarts) started %d second%s ago.' "$pod" "$container" "$restartCount" "$uptimeInSeconds" "$uptimePlural"
-    [ $# -gt 0 ] || exit 99
+    [ $# -gt 0 ] || return 99
     execute "$@"
 }
 execute()
@@ -242,8 +253,7 @@ execute()
     done
 
     kubectl-wrapper "${kubectlNamespaceArgs[@]}" "${kubectlCommand[@]}" "$pod" "$containerArg" "$container" "$@" \
-	&& exit 99 \
-	|| exit $?
+	&& return 99
 }
 
 
