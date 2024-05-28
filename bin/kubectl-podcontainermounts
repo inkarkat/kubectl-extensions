@@ -57,7 +57,7 @@ if [ "$KUBECTL_IGNORE_CONTAINERNAMES" ]; then
     containerFilter=(sed -e "/ -c \\(${ignoredContainerBranches}\\)\t/d")
 fi
 
-getAllPodContainerEnvironments()
+getAllPodContainerMounts()
 {
     if [ -n "$filterContainer" ]; then
 	local -r SELECTOR='{{$podName := .metadata.name}}{{range .spec.containers}}{{if eq .name "'"$filterContainer"'"}}{{$podName}}{{"\t"}}{{range .volumeMounts}}{{.mountPath}} <- {{.name}}{{if .subPath}}:{{.subPath}}{{end}}{{"\t"}}{{end}}{{end}}{{"\n"}}{{end}}'
@@ -67,7 +67,7 @@ getAllPodContainerEnvironments()
     kubectl get pods "$@" -o go-template --template "{{if .items}}{{range .items}}{{if not .status.reason}}${SELECTOR}{{end}}{{end}}{{else}}${SELECTOR}{{end}}"
 }
 
-eval 'getAllPodContainerEnvironments "$@"' \
+eval 'getAllPodContainerMounts "$@"' \
     "${podFilter:+|}" '"${podFilter[@]}"' \
     "${containerFilter:+|}" '"${containerFilter[@]}"' \
     "${singleResultFilter:+|}" '"${singleResultFilter[@]}"' \
