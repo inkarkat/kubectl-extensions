@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[-m|--match PATTERN [-m ...]] [KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER|''] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[-m|--match PATTERN [-m ...]] [-v|--var NAME [-v ...]] [KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER|''] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -28,11 +28,13 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --match|-m PATTERN	Only show environment variables matching (basic,
 			anchored to the beginning but not the end) PATTERN.
+    --var|-v NAME	Only show environment variables with NAME.
 HELPTEXT
 }
 
 typeset -a getPodArgs=()
 typeset -a grepArgs=()
+isLiteralPattern=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -41,11 +43,29 @@ do
 			grepArgs+=(-e "^${1//\$/=}")	# Convert end-of-line anchor to assignment, as that's the format we're filtering.
 			shift
 			;;
+	--var|-v)	shift
+			literalPattern="$(printf %s "${1:?}" | sed -e 's/[][\$*.^]/\\&/g')"
+			shift
+			grepArgs+=(-e "^${literalPattern}=")
+			isLiteralPattern=t
+			;;
 	--)		getPodArgs+=("$1"); shift; break;;
 	*)		getPodArgs+=("$1"); shift;;
     esac
 done
 set -- "${getPodArgs[@]}" "$@"
+
+typeset -a postGrepArgs=()
+if [ "$isLiteralPattern" ] && [ "${#grepArgs[@]}" -eq 2 ]; then
+    # DWIM: Omit the NAME= prefix when matching a single environment variable and
+    # join the POD name header with the value into a table.
+    postGrepArgs=(sed \
+	# Special case for when the POD prefix is omitted due to single matching POD.
+	-e "s/^${literalPattern}=//" -e t \
+	# Join the POD name with the value.
+	-e "/^  [^ ]\\+/{ N; s/^  \\([^ ]\\+\\):\\n${literalPattern}=\\(.*\\)\$/\1\t\2/; }"
+    )
+fi
 
 typeset -a emptyFilter=(sed
     -e '/^  [^ ]\+/{ N; /\n$/d }'
@@ -106,4 +126,5 @@ eval 'getAllPodContainerEnvironments "$@"' \
     "${singleResultFilter:+|}" '"${singleResultFilter[@]}"' \
     "${finalFilter:+|}" '"${finalFilter[@]}"' \
     "${grepArgs:+| grep -e '^  '}" '"${grepArgs[@]}"' \
-    "${emptyFilter:+|}" '"${emptyFilter[@]}"'
+    "${emptyFilter:+|}" '"${emptyFilter[@]}"' \
+    "${postGrepArgs:+|}" '"${postGrepArgs[@]}"'
