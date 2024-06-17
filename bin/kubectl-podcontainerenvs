@@ -112,10 +112,11 @@ fi
 
 getAllPodContainerEnvironments()
 {
+    local -r environmentsExpr='{{range .env}}{{.name}}{{if .valueFrom}} → .{{if .valueFrom.secretKeyRef}}{{.valueFrom.secretKeyRef.key}}{{else}}{{.valueFrom.fieldRef.fieldPath}}{{end}}{{else}}={{.value}}{{end}}{{"\t"}}{{end}}'
     if [ -n "$filterContainer" ]; then
-	local -r SELECTOR='{{$podName := .metadata.name}}{{range .spec.containers}}{{if eq .name "'"$filterContainer"'"}}{{$podName}}{{"\t"}}{{range .env}}{{.name}}{{if .valueFrom}} -> .{{.valueFrom.fieldRef.fieldPath}}{{else}}={{.value}}{{end}}{{"\t"}}{{end}}{{end}}{{"\n"}}{{end}}'
+	local -r SELECTOR='{{$podName := .metadata.name}}{{range .spec.containers}}{{if eq .name "'"$filterContainer"'"}}{{$podName}}{{"\t"}}'"$environmentsExpr"'{{end}}{{"\n"}}{{end}}'
     else
-	local -r SELECTOR='{{$podName := .metadata.name}}{{range .spec.containers}}{{$podName}} -c {{.name}}{{"\t"}}{{range .env}}{{.name}}{{if .valueFrom}} -> .{{.valueFrom.fieldRef.fieldPath}}{{else}}={{.value}}{{end}}{{"\t"}}{{end}}{{"\n"}}{{end}}'
+	local -r SELECTOR='{{$podName := .metadata.name}}{{range .spec.containers}}{{$podName}} -c {{.name}}{{"\t"}}'"$environmentsExpr"'{{"\n"}}{{end}}'
     fi
     kubectl get pods "$@" -o go-template --template "{{if .items}}{{range .items}}{{if not .status.reason}}${SELECTOR}{{end}}{{end}}{{else}}${SELECTOR}{{end}}"
 }
