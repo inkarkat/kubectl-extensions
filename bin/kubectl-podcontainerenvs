@@ -112,7 +112,8 @@ fi
 
 getAllPodContainerEnvironments()
 {
-    local -r environmentsExpr='{{range .env}}{{.name}}{{if .valueFrom}} → .{{if .valueFrom.secretKeyRef}}{{.valueFrom.secretKeyRef.key}}{{else}}{{.valueFrom.fieldRef.fieldPath}}{{end}}{{else}}={{.value}}{{end}}{{"\t"}}{{end}}'
+    local -r environmentsExpr='{{range .env}}{{.name}}{{if .valueFrom}} → .{{if .valueFrom.secretKeyRef}}{{.valueFrom.secretKeyRef.key}}🔑{{else}}{{.valueFrom.fieldRef.fieldPath}}{{end}}{{else}}={{.value}}{{end}}{{"\t"}}{{end}}'\
+'{{range .envFrom}}{{if .configMapRef}}⇒ {{.configMapRef.name}}{{end}}{{if .secretRef}}⇒ {{.secretRef.name}}🔑{{end}}{{"\t"}}{{end}}'
     if [ -n "$filterContainer" ]; then
 	local -r SELECTOR='{{$podName := .metadata.name}}{{range .spec.containers}}{{if eq .name "'"$filterContainer"'"}}{{$podName}}{{"\t"}}'"$environmentsExpr"'{{end}}{{"\n"}}{{end}}'
     else
