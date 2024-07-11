@@ -29,16 +29,16 @@ HELPTEXT
 
 SELECTOR='{{range $key, $value := .metadata.labels}}{{$key}}{{"\t"}}{{$value}}{{"\n"}}{{end}}'
 typeset -a columnizer=(column -s $'\t' -t)
-typeset -a kubectlNamespaceArgs=()
+typeset -a kubectlGlobalArgs=()
 typeset -a kubectlArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--all-namespaces|-A)
-			kubectlNamespaceArgs+=("$1"); shift;;
-	--namespace|-n|--selector|-l|--cluster|--context|--template)
-			kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
+			kubectlGlobalArgs+=("$1"); shift;;
+	--namespace|-n|--cluster|--context)
+			kubectlGlobalArgs+=("$1" "$2"); shift; shift;;
 
 	--names)	shift; SELECTOR='{{range $key, $value := .metadata.labels}}{{$key}}{{"\n"}}{{end}}'; columnizer=();;
 	--values)	shift; SELECTOR='{{range $key, $value := .metadata.labels}}{{$value}}{{"\n"}}{{end}}'; columnizer=();;
@@ -51,7 +51,7 @@ done
 
 getAllLabels()
 {
-    kubectl "${kubectlNamespaceArgs[@]}" get "${kubectlArgs[@]}" -o go-template --template "{{if .items}}{{range .items}}${SELECTOR}{{end}}{{else}}${SELECTOR}{{end}}" "$@"
+    kubectl "${kubectlGlobalArgs[@]}" get "${kubectlArgs[@]}" -o go-template --template "{{if .items}}{{range .items}}${SELECTOR}{{end}}{{else}}${SELECTOR}{{end}}" "$@"
 }
 
 getAllLabels "$@" \

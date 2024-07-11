@@ -10,14 +10,14 @@ HELPTEXT
     printf 'Usage: %q %s\n' "$(basename "$1")" '[KUBE-COMMAND ...] [-?|-h|--help]'
 }
 
-typeset -a kubectlArgs=()
+typeset -a kubectlGlobalArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--all-namespaces|-A)
-			kubectlArgs+=("$1"); shift;;
-	--namespace|-n|--selector|-l|--cluster|--context|--template)
-			kubectlArgs+=("$1" "$2"); shift; shift;;
+			kubectlGlobalArgs+=("$1"); shift;;
+	--namespace|-n|--cluster|--context)
+			kubectlGlobalArgs+=("$1" "$2"); shift; shift;;
 	--)		break;;
 	*)		break;;
     esac
@@ -30,4 +30,4 @@ if [ $# -eq 0 ]; then
     fi
 fi
 
-exec kubectl-wrapper "${kubectlArgs[@]}" "$@"
+exec kubectl-wrapper "${kubectlGlobalArgs[@]}" "$@"
