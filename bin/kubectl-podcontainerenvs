@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[-m|--match PATTERN [-m ...]] [-v|--var NAME [-v ...]] [KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER|''] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[-m|--match PATTERN [-m ...]] [-v|--var NAME [-v ...]] [--include-secrets] [KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER|''] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -29,16 +29,24 @@ HELPDESCRIPTION
     --match|-m PATTERN	Only show environment variables matching (basic,
 			anchored to the beginning but not the end) PATTERN.
     --var|-v NAME	Only show environment variables with NAME.
+    --include-secrets	Also retrieve the values of referenced secrets.
 HELPTEXT
 }
 
+typeset -a kubectlNamespaceArgs=()
 typeset -a getPodArgs=()
 typeset -a grepArgs=()
 isLiteralPattern=
+isIncludeSecrets=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--all-namespaces|-A)
+			kubectlNamespaceArgs+=("$1"); shift;;
+	--namespace|-n|-l|--cluster|--context)
+			kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
+
 	--match|-m)	shift
 			grepArgs+=(-e "^${1//\$/=}")	# Convert end-of-line anchor to assignment, as that's the format we're filtering.
 			shift
@@ -49,6 +57,8 @@ do
 			grepArgs+=(-e "^${literalPattern}=")
 			isLiteralPattern=t
 			;;
+	--include-secrets)
+			shift; isIncludeSecrets=t;;
 	--)		getPodArgs+=("$1"); shift; break;;
 	*)		getPodArgs+=("$1"); shift;;
     esac
@@ -110,15 +120,42 @@ if [ "$KUBECTL_IGNORE_CONTAINERNAMES" ]; then
     containerFilter=(sed -e "/ -c \\(${ignoredContainerBranches}\\)\t/d")
 fi
 
+configMapExpander()
+{
+    while IFS=$'\n' read -r line
+    do
+	if [[ "$line" =~ ^⇒\ (🔑)?([^[:space:]]+)$ ]]; then
+	    printf '%s\n' "$line"
+	    local isSecret="${BASH_REMATCH[1]}" name="${BASH_REMATCH[2]}"
+	    if [ "$isSecret" ]; then
+		[ "$isIncludeSecrets" ] \
+		    && local valueIdentifier='{{$value}}' \
+		    || local valueIdentifier='🔑'
+		kubectl "${kubectlNamespaceArgs[@]}" get secret "$name" -o go-template --template '{{range $key, $value := .data}}{{$key}}='"$valueIdentifier"'{{"\n"}}{{end}}'
+	    else
+		kubectl "${kubectlNamespaceArgs[@]}" get configmap "$name" -o go-template --template '{{range $key, $value := .data}}{{$key}}={{$value}}{{"\n"}}{{end}}'
+	    fi
+	elif [[ "$line" =~ ^([^[:space:]]+)\ →\ ([^[:space:]]+)🔑([^[:space:]]+)$ ]] && [ "$isIncludeSecrets" ]; then
+	    local envVarName="${BASH_REMATCH[1]}" secretKey="${BASH_REMATCH[2]}" name="${BASH_REMATCH[3]}"
+	    secretValue="$(kubectl "${kubectlNamespaceArgs[@]}" get secret "$name" -o go-template --template "{{\$value := index .data \"${secretKey#.}\"}}{{\$value}}")" \
+		&& printf '%s=%s\n' "$envVarName" "$secretValue" \
+		|| printf '%s\n' "$line"
+	else
+	    printf '%s\n' "$line"
+	fi
+    done
+}
+
 getAllPodContainerEnvironments()
 {
-    local -r environmentsExpr='{{range .env}}{{.name}}{{if .valueFrom}} → .{{if .valueFrom.secretKeyRef}}{{.valueFrom.secretKeyRef.key}}{{else}}{{.valueFrom.fieldRef.fieldPath}}{{end}}{{else}}={{.value}}{{end}}{{"\t"}}{{end}}'
+    local -r environmentsExpr='{{range .env}}{{.name}}{{if .valueFrom}} → .{{if .valueFrom.secretKeyRef}}{{.valueFrom.secretKeyRef.key}}🔑{{.valueFrom.secretKeyRef.name}}{{else}}{{.valueFrom.fieldRef.fieldPath}}{{end}}{{else}}={{.value}}{{end}}{{"\t"}}{{end}}'\
+'{{range .envFrom}}{{if .configMapRef}}⇒ {{.configMapRef.name}}{{end}}{{if .secretRef}}⇒ 🔑{{.secretRef.name}}{{end}}{{"\t"}}{{end}}'
     if [ -n "$filterContainer" ]; then
 	local -r SELECTOR='{{$podName := .metadata.name}}{{range .spec.containers}}{{if eq .name "'"$filterContainer"'"}}{{$podName}}{{"\t"}}'"$environmentsExpr"'{{end}}{{"\n"}}{{end}}'
     else
 	local -r SELECTOR='{{$podName := .metadata.name}}{{range .spec.containers}}{{$podName}} -c {{.name}}{{"\t"}}'"$environmentsExpr"'{{"\n"}}{{end}}'
     fi
-    kubectl get pods "$@" -o go-template --template "{{if .items}}{{range .items}}{{if not .status.reason}}${SELECTOR}{{end}}{{end}}{{else}}${SELECTOR}{{end}}"
+    kubectl "${kubectlNamespaceArgs[@]}" get pods "$@" -o go-template --template "{{if .items}}{{range .items}}{{if not .status.reason}}${SELECTOR}{{end}}{{end}}{{else}}${SELECTOR}{{end}}"
 }
 
 eval 'getAllPodContainerEnvironments "$@"' \
@@ -126,6 +163,7 @@ eval 'getAllPodContainerEnvironments "$@"' \
     "${containerFilter:+|}" '"${containerFilter[@]}"' \
     "${singleResultFilter:+|}" '"${singleResultFilter[@]}"' \
     "${finalFilter:+|}" '"${finalFilter[@]}"' \
+    '| configMapExpander' \
     "${grepArgs:+| grep -e '^  '}" '"${grepArgs[@]}"' \
     "${emptyFilter:+|}" '"${emptyFilter[@]}"' \
     "${postGrepArgs:+|}" '"${postGrepArgs[@]}"'
