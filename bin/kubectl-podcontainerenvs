@@ -44,7 +44,7 @@ do
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--all-namespaces|-A)
 			kubectlNamespaceArgs+=("$1"); shift;;
-	--namespace|-n|-l|--cluster|--context)
+	--namespace|-n|--cluster|--context)
 			kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
 
 	--match|-m)	shift

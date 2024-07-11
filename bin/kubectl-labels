@@ -37,7 +37,7 @@ do
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--all-namespaces|-A)
 			kubectlNamespaceArgs+=("$1"); shift;;
-	--namespace|-n|--selector|-l|--cluster|--context|--template)
+	--namespace|-n|--cluster|--context)
 			kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
 
 	--names)	shift; SELECTOR='{{range $key, $value := .metadata.labels}}{{$key}}{{"\n"}}{{end}}'; columnizer=();;
