@@ -32,6 +32,7 @@ HELPDESCRIPTION
 HELPTEXT
 }
 
+typeset -a kubectlNamespaceArgs=()
 typeset -a getPodArgs=()
 typeset -a grepArgs=()
 isLiteralPattern=
@@ -39,6 +40,11 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--all-namespaces|-A)
+			kubectlNamespaceArgs+=("$1"); shift;;
+	--namespace|-n|-l|--cluster|--context)
+			kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
+
 	--match|-m)	shift
 			grepArgs+=(-e "^${1//\$/=}")	# Convert end-of-line anchor to assignment, as that's the format we're filtering.
 			shift
@@ -110,6 +116,17 @@ if [ "$KUBECTL_IGNORE_CONTAINERNAMES" ]; then
     containerFilter=(sed -e "/ -c \\(${ignoredContainerBranches}\\)\t/d")
 fi
 
+configMapExpander()
+{
+    while IFS=$'\n' read -r line
+    do
+	printf '%s\n' "$line"
+	if [[ "$line" =~ ^⇒\ ([^[:space:]🔑]+)(🔑)?$ ]]; then
+	    kubectl "${kubectlNamespaceArgs[@]}" get configmap "${BASH_REMATCH[1]}" -o go-template --template '{{range $key, $value := .data}}{{$key}}={{$value}}{{"\n"}}{{end}}'
+	fi
+    done
+}
+
 getAllPodContainerEnvironments()
 {
     local -r environmentsExpr='{{range .env}}{{.name}}{{if .valueFrom}} → .{{if .valueFrom.secretKeyRef}}{{.valueFrom.secretKeyRef.key}}🔑{{else}}{{.valueFrom.fieldRef.fieldPath}}{{end}}{{else}}={{.value}}{{end}}{{"\t"}}{{end}}'\
@@ -119,7 +136,7 @@ getAllPodContainerEnvironments()
     else
 	local -r SELECTOR='{{$podName := .metadata.name}}{{range .spec.containers}}{{$podName}} -c {{.name}}{{"\t"}}'"$environmentsExpr"'{{"\n"}}{{end}}'
     fi
-    kubectl get pods "$@" -o go-template --template "{{if .items}}{{range .items}}{{if not .status.reason}}${SELECTOR}{{end}}{{end}}{{else}}${SELECTOR}{{end}}"
+    kubectl "${kubectlNamespaceArgs[@]}" get pods "$@" -o go-template --template "{{if .items}}{{range .items}}{{if not .status.reason}}${SELECTOR}{{end}}{{end}}{{else}}${SELECTOR}{{end}}"
 }
 
 eval 'getAllPodContainerEnvironments "$@"' \
@@ -127,6 +144,7 @@ eval 'getAllPodContainerEnvironments "$@"' \
     "${containerFilter:+|}" '"${containerFilter[@]}"' \
     "${singleResultFilter:+|}" '"${singleResultFilter[@]}"' \
     "${finalFilter:+|}" '"${finalFilter[@]}"' \
+    '| configMapExpander' \
     "${grepArgs:+| grep -e '^  '}" '"${grepArgs[@]}"' \
     "${emptyFilter:+|}" '"${emptyFilter[@]}"' \
     "${postGrepArgs:+|}" '"${postGrepArgs[@]}"'
