@@ -43,7 +43,7 @@ HELPDESCRIPTION
 HELPTEXT
 }
 
-typeset -a kubectlNamespaceArgs=()
+typeset -a kubectlGlobalArgs=()
 typeset -a pkillArgs=()
 typeset -a signalArgs=()
 typeset -a otherArgs=()
@@ -56,9 +56,9 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--all-namespaces|-A)
-			kubectlNamespaceArgs+=("$1"); shift;;
+			kubectlGlobalArgs+=("$1"); shift;;
 	--namespace|-n|--cluster|--context)
-			kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
+			kubectlGlobalArgs+=("$1" "$2"); shift; shift;;
 
 	-[flanovwx]*)	pkillArgs+=("$1"); shift;;
 	--@(count|full|list-name|list-full|newest|oldest|inverse|lightweight|exact))
@@ -176,4 +176,4 @@ if [ -n "$commands" ]; then
     signalCommand[-1]+="; $commands"
 fi
 
-exec kubectl-wrapper "${kubectlNamespaceArgs[@]}" exec "$@" "$pod" ${container:+-c "$container"} -- "${signalCommand[@]}"
+exec kubectl-wrapper "${kubectlGlobalArgs[@]}" exec "$@" "$pod" ${container:+-c "$container"} -- "${signalCommand[@]}"

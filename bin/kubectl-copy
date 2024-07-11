@@ -13,7 +13,7 @@ HELPTEXT
 }
 
 direction=
-typeset -a kubectlNamespaceArgs=()
+typeset -a kubectlGlobalArgs=()
 typeset -a kubectlContainerArgs=()
 typeset -a kubectlSelectorArgs=()
 typeset -a pods=()
@@ -40,7 +40,11 @@ do
 			fi >&2
 			;;
 
-	--namespace|-n)	kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
+	--all-namespaces|-A)
+			kubectlGlobalArgs+=("$1"); shift;;
+	--namespace|-n|--cluster|--context)
+			kubectlGlobalArgs+=("$1" "$2"); shift; shift;;
+
 	--container|-c)	kubectlContainerArgs+=("$1" "$2"); shift; shift;;
 	--container=*)	kubectlContainerArgs+=("$1"); shift;;
 	--selector|-l)	kubectlSelectorArgs+=("$1" "$2"); shift; shift;;
@@ -74,7 +78,7 @@ destination="${!#}"
 set -- "${@:1:$(($#-1))}"
 
 if [ ${#kubectlSelectorArgs[@]} -gt 0 ]; then
-    readarray -t pods < <(kubectl-podnames "${kubectlNamespaceArgs[@]}" "${kubectlSelectorArgs[@]}")
+    readarray -t pods < <(kubectl-podnames "${kubectlGlobalArgs[@]}" "${kubectlSelectorArgs[@]}")
     if [ ${#pods[@]} -eq 0 ]; then
 	printf >&2 'ERROR: No Pods matching %s found.\n' "${kubectlSelectorArgs[*]}"
 	exit 1
@@ -101,7 +105,7 @@ do
 	esac
 
 	# "kubectl cp" only supports exactly one source and destination file.
-	kubectl "${kubectlNamespaceArgs[@]}" cp "${kubectlContainerArgs[@]}" "$sourceFilespec" "$destinationFilespec" \
+	kubectl "${kubectlGlobalArgs[@]}" cp "${kubectlContainerArgs[@]}" "$sourceFilespec" "$destinationFilespec" \
 	    && printf '%s\n' "$copyMessage" \
 	    || status=$?
     done

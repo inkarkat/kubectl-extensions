@@ -3,7 +3,7 @@
 : ${KUBECTL_LOGS_SMALLSCALE_SELECTOR:-}
 
 typeset -a kubectlArgs=()
-typeset -a kubectlNamespaceArgs=()
+typeset -a kubectlGlobalArgs=()
 typeset -a kubectlContainerArgs=()
 typeset -a kubectlFollowArgs=()
 hasTailArg=
@@ -11,7 +11,11 @@ isBoth=
 while [ $# -ne 0 ]
 do
     case "$1" in
-	--namespace|-n)	kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
+	--all-namespaces|-A)
+			kubectlGlobalArgs+=("$1"); shift;;
+	--namespace|-n|--cluster|--context)
+			kubectlGlobalArgs+=("$1" "$2"); shift; shift;;
+
 	--container|-c)	kubectlContainerArgs+=("$1" "$2"); shift; shift;;
 	--container=*)	kubectlContainerArgs+=("$1"); shift;;
 
@@ -29,8 +33,8 @@ done
 
 if [ "$isBoth" ]; then
     "${PAGER:-less}" --force \
-	<(kubectl "${kubectlNamespaceArgs[@]}" logs "${kubectlContainerArgs[@]}" --previous "${kubectlArgs[@]}" "$@") \
-	<(kubectl "${kubectlNamespaceArgs[@]}" logs "${kubectlContainerArgs[@]}" "${kubectlFollowArgs[@]}" "${kubectlArgs[@]}" "$@")
+	<(kubectl "${kubectlGlobalArgs[@]}" logs "${kubectlContainerArgs[@]}" --previous "${kubectlArgs[@]}" "$@") \
+	<(kubectl "${kubectlGlobalArgs[@]}" logs "${kubectlContainerArgs[@]}" "${kubectlFollowArgs[@]}" "${kubectlArgs[@]}" "$@")
     exit $?
 fi
 
@@ -50,4 +54,4 @@ if [ ! "$hasTailArg" ]; then
     fi
 fi
 
-exec kubectl "${kubectlNamespaceArgs[@]}" logs "${kubectlContainerArgs[@]}" "${kubectlFollowArgs[@]}" "${kubectlArgs[@]}" "$@"
+exec kubectl "${kubectlGlobalArgs[@]}" logs "${kubectlContainerArgs[@]}" "${kubectlFollowArgs[@]}" "${kubectlArgs[@]}" "$@"

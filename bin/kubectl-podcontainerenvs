@@ -33,7 +33,7 @@ HELPDESCRIPTION
 HELPTEXT
 }
 
-typeset -a kubectlNamespaceArgs=()
+typeset -a kubectlGlobalArgs=()
 typeset -a getPodArgs=()
 typeset -a grepArgs=()
 isLiteralPattern=
@@ -43,9 +43,9 @@ do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
 	--all-namespaces|-A)
-			kubectlNamespaceArgs+=("$1"); shift;;
+			kubectlGlobalArgs+=("$1"); shift;;
 	--namespace|-n|--cluster|--context)
-			kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
+			kubectlGlobalArgs+=("$1" "$2"); shift; shift;;
 
 	--match|-m)	shift
 			grepArgs+=(-e "^${1//\$/=}")	# Convert end-of-line anchor to assignment, as that's the format we're filtering.
@@ -131,13 +131,13 @@ configMapExpander()
 		[ "$isIncludeSecrets" ] \
 		    && local valueIdentifier='{{$value}}' \
 		    || local valueIdentifier='🔑'
-		kubectl "${kubectlNamespaceArgs[@]}" get secret "$name" -o go-template --template '{{range $key, $value := .data}}{{$key}}='"$valueIdentifier"'{{"\n"}}{{end}}'
+		kubectl "${kubectlGlobalArgs[@]}" get secret "$name" -o go-template --template '{{range $key, $value := .data}}{{$key}}='"$valueIdentifier"'{{"\n"}}{{end}}'
 	    else
-		kubectl "${kubectlNamespaceArgs[@]}" get configmap "$name" -o go-template --template '{{range $key, $value := .data}}{{$key}}={{$value}}{{"\n"}}{{end}}'
+		kubectl "${kubectlGlobalArgs[@]}" get configmap "$name" -o go-template --template '{{range $key, $value := .data}}{{$key}}={{$value}}{{"\n"}}{{end}}'
 	    fi
 	elif [[ "$line" =~ ^([^[:space:]]+)\ →\ ([^[:space:]]+)🔑([^[:space:]]+)$ ]] && [ "$isIncludeSecrets" ]; then
 	    local envVarName="${BASH_REMATCH[1]}" secretKey="${BASH_REMATCH[2]}" name="${BASH_REMATCH[3]}"
-	    secretValue="$(kubectl "${kubectlNamespaceArgs[@]}" get secret "$name" -o go-template --template "{{\$value := index .data \"${secretKey#.}\"}}{{\$value}}")" \
+	    secretValue="$(kubectl "${kubectlGlobalArgs[@]}" get secret "$name" -o go-template --template "{{\$value := index .data \"${secretKey#.}\"}}{{\$value}}")" \
 		&& printf '%s=%s\n' "$envVarName" "$secretValue" \
 		|| printf '%s\n' "$line"
 	else
@@ -155,7 +155,7 @@ getAllPodContainerEnvironments()
     else
 	local -r SELECTOR='{{$podName := .metadata.name}}{{range .spec.containers}}{{$podName}} -c {{.name}}{{"\t"}}'"$environmentsExpr"'{{"\n"}}{{end}}'
     fi
-    kubectl "${kubectlNamespaceArgs[@]}" get pods "$@" -o go-template --template "{{if .items}}{{range .items}}{{if not .status.reason}}${SELECTOR}{{end}}{{end}}{{else}}${SELECTOR}{{end}}"
+    kubectl "${kubectlGlobalArgs[@]}" get pods "$@" -o go-template --template "{{if .items}}{{range .items}}{{if not .status.reason}}${SELECTOR}{{end}}{{end}}{{else}}${SELECTOR}{{end}}"
 }
 
 eval 'getAllPodContainerEnvironments "$@"' \

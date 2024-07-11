@@ -17,14 +17,14 @@ typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ "$_kubectl_toterm" ] 
 [ -n "${_kubectl_wrapper+t}" ] && pager=()
 export _kubectl_wrapper=true
 
-typeset -a kubectlNamespaceArgs=()
+typeset -a kubectlGlobalArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--all-namespaces|-A)
-			kubectlNamespaceArgs+=("$1"); shift;;
+			kubectlGlobalArgs+=("$1"); shift;;
 	--namespace|-n|--cluster|--context)
-			kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
+			kubectlGlobalArgs+=("$1" "$2"); shift; shift;;
 	--)		break;;
 	*)		break;;
     esac
@@ -65,13 +65,13 @@ pagerDisableCheck()
 
 typeset kubectlAlias="kubectl-$1"
 if [ $# -eq 0 -a -n "$KUBECTL_DEFAULT_COMMAND" ]; then
-    eval "exec \"\${BASH_SOURCE[0]}\" \"\${kubectlNamespaceArgs[@]}\" $KUBECTL_DEFAULT_COMMAND"
+    eval "exec \"\${BASH_SOURCE[0]}\" \"\${kubectlGlobalArgs[@]}\" $KUBECTL_DEFAULT_COMMAND"
 elif type -t "$kubectlAlias" >/dev/null; then
     pagerDisableCheck "$@"
 
-    shift; eval $kubectlAlias '"${kubectlNamespaceArgs[@]}" "$@"' "${pager:+|}" '"${pager[@]}"'
+    shift; eval $kubectlAlias '"${kubectlGlobalArgs[@]}" "$@"' "${pager:+|}" '"${pager[@]}"'
 else
     pagerDisableCheck "$@"
 
-    eval 'command kubectl "${kubectlNamespaceArgs[@]}" "$@"' "${pager:+|}" '"${pager[@]}"'
+    eval 'command kubectl "${kubectlGlobalArgs[@]}" "$@"' "${pager:+|}" '"${pager[@]}"'
 fi

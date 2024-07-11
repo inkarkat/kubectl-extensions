@@ -43,14 +43,18 @@ HELPTEXT
 
 isAllowNonexistentPods=t
 # Extract the --namespace argument; it may appear anywhere, so we need to go through all command-line arguments and filter them out.
-typeset -a kubectlNamespaceArgs=()
+typeset -a kubectlGlobalArgs=()
 typeset -a allargs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
+	--all-namespaces|-A)
+			kubectlGlobalArgs+=("$1"); shift;;
+	--namespace|-n|--cluster|--context)
+			kubectlGlobalArgs+=("$1" "$2"); shift; shift;;
+
 	--wait-for-restart|-r)	shift; isAllowNonexistentPods=;;
 	--no-initial-wait|-W)	shift; KUBECTL_WAIT_MAX_UPTIME_IN_SECONDS_FOR_NEWNESS=2147483647;;
-	--namespace|-n)		kubectlNamespaceArgs+=("$1" "$2"); shift; shift;;
 	*)			allargs+=("$1"); shift;;
     esac
 done
@@ -164,7 +168,7 @@ parse()
 
     local IFS=' '
     if [ ${#results[@]} -eq 0 ]; then
-	printf -v kcCommand '%q ' kubectl get pods "${kubectlNamespaceArgs[@]}" ${podFilter:+|} "${podFilter[@]}" ${containerFilter:+|} "${containerFilter[@]}"
+	printf -v kcCommand '%q ' kubectl get pods "${kubectlGlobalArgs[@]}" ${podFilter:+|} "${podFilter[@]}" ${containerFilter:+|} "${containerFilter[@]}"
 	if [ "$isAllowNonexistentPods" ]; then
 	    spinningprintf "$isFirst" 'No results for %s yet.' "${podPattern}${container:+ -c $container}"
 	    return 0
@@ -198,7 +202,7 @@ parse()
 
     : "${pod:?}"
     if [ -z "$startTimeOrState" ]; then
-	local phase="$(kubectl "${kubectlNamespaceArgs[@]}" get pod "$pod" -o go-template --template '{{.state.phase}}')"
+	local phase="$(kubectl "${kubectlGlobalArgs[@]}" get pod "$pod" -o go-template --template '{{.state.phase}}')"
 	if [ "$phase" ]; then
 	    spinningprintf "$isFirst" '%s (%d restarts) is currently in phase %s.' "$pod" "$restartCount" "$phase"
 	else
@@ -252,7 +256,7 @@ execute()
 	kubectlCommand+=("$1"); shift
     done
 
-    kubectl-wrapper "${kubectlNamespaceArgs[@]}" "${kubectlCommand[@]}" "$pod" "$containerArg" "$container" "$@" \
+    kubectl-wrapper "${kubectlGlobalArgs[@]}" "${kubectlCommand[@]}" "$pod" "$containerArg" "$container" "$@" \
 	&& return 99
 }
 
@@ -267,7 +271,7 @@ lastStateFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null ||
 isFirst=t
 while :
 do
-    eval 'getPodContainerStartTimes "${kubectlNamespaceArgs[@]}"' \
+    eval 'getPodContainerStartTimes "${kubectlGlobalArgs[@]}"' \
 	"${podFilter:+|}" '"${podFilter[@]}"' \
 	"${containerFilter:+|}" '"${containerFilter[@]}"' \
 	| parse "$isFirst" "$@"
