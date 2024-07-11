@@ -5,7 +5,7 @@ printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[-m|--match PATTERN [-m ...]] [-v|--var NAME [-v ...]] [KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER|''] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[-m|--match PATTERN [-m ...]] [-v|--var NAME [-v ...]] [--include-secrets] [KUBECTL-ARGS ...] [POD-NAME ...] [-- EXPR] [-c CONTAINER|''] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -29,6 +29,7 @@ HELPDESCRIPTION
     --match|-m PATTERN	Only show environment variables matching (basic,
 			anchored to the beginning but not the end) PATTERN.
     --var|-v NAME	Only show environment variables with NAME.
+    --include-secrets	Also retrieve the values of referenced secrets.
 HELPTEXT
 }
 
@@ -36,6 +37,7 @@ typeset -a kubectlNamespaceArgs=()
 typeset -a getPodArgs=()
 typeset -a grepArgs=()
 isLiteralPattern=
+isIncludeSecrets=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -55,6 +57,8 @@ do
 			grepArgs+=(-e "^${literalPattern}=")
 			isLiteralPattern=t
 			;;
+	--include-secrets)
+			shift; isIncludeSecrets=t;;
 	--)		getPodArgs+=("$1"); shift; break;;
 	*)		getPodArgs+=("$1"); shift;;
     esac
@@ -124,11 +128,14 @@ configMapExpander()
 	    printf '%s\n' "$line"
 	    local isSecret="${BASH_REMATCH[1]}" name="${BASH_REMATCH[2]}"
 	    if [ "$isSecret" ]; then
-		kubectl "${kubectlNamespaceArgs[@]}" get secret "$name" -o go-template --template '{{range $key, $value := .data}}{{$key}}={{$value}}{{"\n"}}{{end}}'
+		[ "$isIncludeSecrets" ] \
+		    && local valueIdentifier='{{$value}}' \
+		    || local valueIdentifier='🔑'
+		kubectl "${kubectlNamespaceArgs[@]}" get secret "$name" -o go-template --template '{{range $key, $value := .data}}{{$key}}='"$valueIdentifier"'{{"\n"}}{{end}}'
 	    else
 		kubectl "${kubectlNamespaceArgs[@]}" get configmap "$name" -o go-template --template '{{range $key, $value := .data}}{{$key}}={{$value}}{{"\n"}}{{end}}'
 	    fi
-	elif [[ "$line" =~ ^([^[:space:]]+)\ →\ ([^[:space:]]+)🔑([^[:space:]]+)$ ]]; then
+	elif [[ "$line" =~ ^([^[:space:]]+)\ →\ ([^[:space:]]+)🔑([^[:space:]]+)$ ]] && [ "$isIncludeSecrets" ]; then
 	    local envVarName="${BASH_REMATCH[1]}" secretKey="${BASH_REMATCH[2]}" name="${BASH_REMATCH[3]}"
 	    secretValue="$(kubectl "${kubectlNamespaceArgs[@]}" get secret "$name" -o go-template --template "{{\$value := index .data \"${secretKey#.}\"}}{{\$value}}")" \
 		&& printf '%s=%s\n' "$envVarName" "$secretValue" \
