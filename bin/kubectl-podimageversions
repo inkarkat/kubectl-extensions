@@ -1,0 +1,16 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Query the image versions (without the image name) of containers running in PODs
+[matching EXPR] [of container CONTAINER].
+HELPTEXT
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[KUBECTL-ARGS] [-- EXPR] [-c CONTAINER|''] [-?|-h|--help]"
+}
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+exec kubectl-podimages "$@" \
+    | sed -e 's#[^[:space:]]\+:\([^:[:space:]]\+\)$#\1#'
