@@ -14,12 +14,13 @@ HELPTEXT
 }
 
 typeset -a args=()
-typeset -a kcArgs=()
-typeset -a kcHeaderArg=()
+typeset -a kubectlGlobalArgs=()
+typeset -a kubectlHeaderArg=()
+typeset -a kubectlSelectorArgs=()
 isHeader=t
 isPiped=
 if ! [ -t 1 -o "$_kubectl_toterm" ]; then
-    kcHeaderArg=(--no-headers=true)
+    kubectlHeaderArg=(--no-headers=true)
     isHeader=
     isPiped=t
 fi
@@ -29,9 +30,14 @@ do
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--unpiped)	shift; isPiped=;;
 
-	--all-namespaces)	kcArgs+=("$1"); shift;;
-	--namespace|-n|--cluster|--context|--template)	kcArgs+=("$1" "$2"); shift; shift;;
-	--output|-o)		kcArgs+=("$1" "$2")
+	--all-namespaces)
+			kubectlGlobalArgs+=("$1"); shift;;
+	--namespace|-n|--cluster|--context)
+			kubectlGlobalArgs+=("$1" "$2"); shift; shift;;
+	--selector|-l)	kubectlSelectorArgs+=("$1" "$2"); shift; shift;;
+	--selector=*)	kubectlSelectorArgs+=("$1"); shift;;
+
+	--output|-o)		kubectlGlobalArgs+=("$1" "$2")
 				case "$2" in
 				    wide|custom-columns=*|custom-columns-file=*)	;;
 				    *)	isHeader=;;
@@ -39,8 +45,8 @@ do
 				shift; shift
 				isPiped=
 				;;
-	--no-headers=true)	kcHeaderArg=("$1"); shift; isHeader=;;
-	--no-headers=false)	kcHeaderArg=("$1"); shift; isHeader=t;;
+	--no-headers=true)	kubectlHeaderArg=("$1"); shift; isHeader=;;
+	--no-headers=false)	kubectlHeaderArg=("$1"); shift; isHeader=t;;
 	--)		break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		args+=("$1"); shift;;
@@ -67,7 +73,7 @@ getg()
     local lastArg="${!#}"
 
     if [ "$lastArg" = '--' ]; then
-	kubectl-get "${@:1:$(($#-1))}" "${kcHeaderArg[@]}" "${kcArgs[@]}" --sort-by='{.metadata.creationTimestamp}' | \
+	kubectl-get "${@:1:$(($#-1))}" "${kubectlHeaderArg[@]}" "${kubectlSelectorArgs[@]}" "${kubectlGlobalArgs[@]}" --sort-by='{.metadata.creationTimestamp}' | \
 	    {
 		if [ "$isHeader" ]; then
 		    IFS=$'\n' read -r header; printf '%s\n' "$header"
@@ -98,7 +104,7 @@ b eatall
 ';
 	    }
     else
-	kubectl-get "${@:1:$(($#-1))}" "${kcHeaderArg[@]}" "${kcArgs[@]}" | \
+	kubectl-get "${@:1:$(($#-1))}" "${kubectlHeaderArg[@]}" "${kubectlSelectorArgs[@]}" "${kubectlGlobalArgs[@]}" | \
 	    {
 		if [ "$isHeader" ]; then
 		    IFS=$'\n' read -r header; printf '%s\n' "$header"
