@@ -14,7 +14,7 @@ HELPTEXT
 }
 
 typeset -a args=()
-typeset -a kcArgs=()
+typeset -a kubectlGlobalArgs=()
 typeset -a kcHeaderArg=()
 typeset -a kubectlSelectorArgs=()
 isHeader=t
@@ -30,12 +30,14 @@ do
 	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 	--unpiped)	shift; isPiped=;;
 
-	--all-namespaces)	kcArgs+=("$1"); shift;;
-	--namespace|-n|--cluster|--context|--template)	kcArgs+=("$1" "$2"); shift; shift;;
+	--all-namespaces)
+			kubectlGlobalArgs+=("$1"); shift;;
+	--namespace|-n|--cluster|--context)
+			kubectlGlobalArgs+=("$1" "$2"); shift; shift;;
 	--selector|-l)	kubectlSelectorArgs+=("$1" "$2"); shift; shift;;
 	--selector=*)	kubectlSelectorArgs+=("$1"); shift;;
 
-	--output|-o)		kcArgs+=("$1" "$2")
+	--output|-o)		kubectlGlobalArgs+=("$1" "$2")
 				case "$2" in
 				    wide|custom-columns=*|custom-columns-file=*)	;;
 				    *)	isHeader=;;
@@ -71,7 +73,7 @@ getg()
     local lastArg="${!#}"
 
     if [ "$lastArg" = '--' ]; then
-	kubectl-get "${@:1:$(($#-1))}" "${kcHeaderArg[@]}" "${kubectlSelectorArgs[@]}" "${kcArgs[@]}" --sort-by='{.metadata.creationTimestamp}' | \
+	kubectl-get "${@:1:$(($#-1))}" "${kcHeaderArg[@]}" "${kubectlSelectorArgs[@]}" "${kubectlGlobalArgs[@]}" --sort-by='{.metadata.creationTimestamp}' | \
 	    {
 		if [ "$isHeader" ]; then
 		    IFS=$'\n' read -r header; printf '%s\n' "$header"
@@ -102,7 +104,7 @@ b eatall
 ';
 	    }
     else
-	kubectl-get "${@:1:$(($#-1))}" "${kcHeaderArg[@]}" "${kubectlSelectorArgs[@]}" "${kcArgs[@]}" | \
+	kubectl-get "${@:1:$(($#-1))}" "${kcHeaderArg[@]}" "${kubectlSelectorArgs[@]}" "${kubectlGlobalArgs[@]}" | \
 	    {
 		if [ "$isHeader" ]; then
 		    IFS=$'\n' read -r header; printf '%s\n' "$header"

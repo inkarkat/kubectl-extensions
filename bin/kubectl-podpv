@@ -12,7 +12,7 @@ HELPTEXT
 
 typeset pvOutputArgs=()
 typeset -a args=()
-typeset -a kcArgs=()
+typeset -a kubectlGlobalArgs=()
 typeset -a kcHeaderArg=()
 typeset -a kubectlSelectorArgs=()
 isPiped=
@@ -27,9 +27,9 @@ do
 	--unpiped)	shift; isPiped=;;
 
 	--all-namespaces)
-			kcArgs+=("$1"); shift;;
-	--namespace|-n|--cluster|--context|--template)
-			kcArgs+=("$1" "$2"); shift; shift;;
+			kubectlGlobalArgs+=("$1"); shift;;
+	--namespace|-n|--cluster|--context)
+			kubectlGlobalArgs+=("$1" "$2"); shift; shift;;
 	--selector|-l)	kubectlSelectorArgs+=("$1" "$2"); shift; shift;;
 	--selector=*)	kubectlSelectorArgs+=("$1"); shift;;
 	--no-headers=*)	kcHeaderArg=("$1"); shift;;
@@ -57,10 +57,10 @@ readonly PV_SELECTOR='{{.spec.volumeName}}{{"\n"}}'
 readonly PVC_SELECTOR='{{range .spec.volumes}}{{if ne .persistentVolumeClaim.claimName nil}}{{.persistentVolumeClaim.claimName}}{{"\n"}}{{end}}{{end}}'
 
 # First try to directly get the PVCs (works if nothing or a selector has been passed).
-if ! query pvc "${kubectlSelectorArgs[@]}" "${kcArgs[@]}" "$@" -o go-template --template "{{if .items}}{{range .items}}${PV_SELECTOR}{{end}}{{else}}${PV_SELECTOR}{{end}}" 2>/dev/null; then
+if ! query pvc "${kubectlSelectorArgs[@]}" "${kubectlGlobalArgs[@]}" "$@" -o go-template --template "{{if .items}}{{range .items}}${PV_SELECTOR}{{end}}{{else}}${PV_SELECTOR}{{end}}" 2>/dev/null; then
     # If that failed, try to get the POD(s) and extract the (PVCs) from there.
-    query pods "${kubectlSelectorArgs[@]}" "${kcArgs[@]}" "$@" -o go-template --template "{{if .items}}{{range .items}}${PVC_SELECTOR}{{end}}{{else}}${PVC_SELECTOR}{{end}}" || exit $?
-    query pvc "${kcArgs[@]}" -o go-template --template "{{if .items}}{{range .items}}${PV_SELECTOR}{{end}}{{else}}${PV_SELECTOR}{{end}}" "${results[@]}" || exit $?
+    query pods "${kubectlSelectorArgs[@]}" "${kubectlGlobalArgs[@]}" "$@" -o go-template --template "{{if .items}}{{range .items}}${PVC_SELECTOR}{{end}}{{else}}${PVC_SELECTOR}{{end}}" || exit $?
+    query pvc "${kubectlGlobalArgs[@]}" -o go-template --template "{{if .items}}{{range .items}}${PV_SELECTOR}{{end}}{{else}}${PV_SELECTOR}{{end}}" "${results[@]}" || exit $?
 fi
 [ ${#results[@]} -gt 0 ] || exit 99
 
@@ -71,4 +71,4 @@ if [ "$isPiped" ]; then
     filter='head -n 1 | field 1'
 fi
 
-eval 'kubectl get pv "${pvOutputArgs[@]}" "${kcHeaderArg[@]}" "${kcArgs[@]}" "${results[@]}"' "${filter:+|}$filter"
+eval 'kubectl get pv "${pvOutputArgs[@]}" "${kcHeaderArg[@]}" "${kubectlGlobalArgs[@]}" "${results[@]}"' "${filter:+|}$filter"
