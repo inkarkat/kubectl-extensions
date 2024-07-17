@@ -14,6 +14,7 @@ typeset pvOutputArgs=()
 typeset -a args=()
 typeset -a kcArgs=()
 typeset -a kcHeaderArg=()
+typeset -a kubectlSelectorArgs=()
 isPiped=
 if ! [ -t 1 -o "$_kubectl_toterm" ]; then
     kcHeaderArg=(--no-headers=true)
@@ -29,6 +30,8 @@ do
 			kcArgs+=("$1"); shift;;
 	--namespace|-n|--cluster|--context|--template)
 			kcArgs+=("$1" "$2"); shift; shift;;
+	--selector|-l)	kubectlSelectorArgs+=("$1" "$2"); shift; shift;;
+	--selector=*)	kubectlSelectorArgs+=("$1"); shift;;
 	--no-headers=*)	kcHeaderArg=("$1"); shift;;
 
 	--output|-o)	pvOutputArgs+=("$1" "${2?}"); shift; shift;;
@@ -54,9 +57,9 @@ readonly PV_SELECTOR='{{.spec.volumeName}}{{"\n"}}'
 readonly PVC_SELECTOR='{{range .spec.volumes}}{{if ne .persistentVolumeClaim.claimName nil}}{{.persistentVolumeClaim.claimName}}{{"\n"}}{{end}}{{end}}'
 
 # First try to directly get the PVCs (works if nothing or a selector has been passed).
-if ! query pvc "${kcArgs[@]}" "$@" -o go-template --template "{{if .items}}{{range .items}}${PV_SELECTOR}{{end}}{{else}}${PV_SELECTOR}{{end}}" 2>/dev/null; then
+if ! query pvc "${kubectlSelectorArgs[@]}" "${kcArgs[@]}" "$@" -o go-template --template "{{if .items}}{{range .items}}${PV_SELECTOR}{{end}}{{else}}${PV_SELECTOR}{{end}}" 2>/dev/null; then
     # If that failed, try to get the POD(s) and extract the (PVCs) from there.
-    query pods "${kcArgs[@]}" "$@" -o go-template --template "{{if .items}}{{range .items}}${PVC_SELECTOR}{{end}}{{else}}${PVC_SELECTOR}{{end}}" || exit $?
+    query pods "${kubectlSelectorArgs[@]}" "${kcArgs[@]}" "$@" -o go-template --template "{{if .items}}{{range .items}}${PVC_SELECTOR}{{end}}{{else}}${PVC_SELECTOR}{{end}}" || exit $?
     query pvc "${kcArgs[@]}" -o go-template --template "{{if .items}}{{range .items}}${PV_SELECTOR}{{end}}{{else}}${PV_SELECTOR}{{end}}" "${results[@]}" || exit $?
 fi
 [ ${#results[@]} -gt 0 ] || exit 99

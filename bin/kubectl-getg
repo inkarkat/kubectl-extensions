@@ -16,6 +16,7 @@ HELPTEXT
 typeset -a args=()
 typeset -a kcArgs=()
 typeset -a kcHeaderArg=()
+typeset -a kubectlSelectorArgs=()
 isHeader=t
 isPiped=
 if ! [ -t 1 -o "$_kubectl_toterm" ]; then
@@ -31,6 +32,9 @@ do
 
 	--all-namespaces)	kcArgs+=("$1"); shift;;
 	--namespace|-n|--cluster|--context|--template)	kcArgs+=("$1" "$2"); shift; shift;;
+	--selector|-l)	kubectlSelectorArgs+=("$1" "$2"); shift; shift;;
+	--selector=*)	kubectlSelectorArgs+=("$1"); shift;;
+
 	--output|-o)		kcArgs+=("$1" "$2")
 				case "$2" in
 				    wide|custom-columns=*|custom-columns-file=*)	;;
@@ -67,7 +71,7 @@ getg()
     local lastArg="${!#}"
 
     if [ "$lastArg" = '--' ]; then
-	kubectl-get "${@:1:$(($#-1))}" "${kcHeaderArg[@]}" "${kcArgs[@]}" --sort-by='{.metadata.creationTimestamp}' | \
+	kubectl-get "${@:1:$(($#-1))}" "${kcHeaderArg[@]}" "${kubectlSelectorArgs[@]}" "${kcArgs[@]}" --sort-by='{.metadata.creationTimestamp}' | \
 	    {
 		if [ "$isHeader" ]; then
 		    IFS=$'\n' read -r header; printf '%s\n' "$header"
@@ -98,7 +102,7 @@ b eatall
 ';
 	    }
     else
-	kubectl-get "${@:1:$(($#-1))}" "${kcHeaderArg[@]}" "${kcArgs[@]}" | \
+	kubectl-get "${@:1:$(($#-1))}" "${kcHeaderArg[@]}" "${kubectlSelectorArgs[@]}" "${kcArgs[@]}" | \
 	    {
 		if [ "$isHeader" ]; then
 		    IFS=$'\n' read -r header; printf '%s\n' "$header"
