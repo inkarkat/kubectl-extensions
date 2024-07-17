@@ -13,11 +13,11 @@ HELPTEXT
 typeset pvOutputArgs=()
 typeset -a args=()
 typeset -a kubectlGlobalArgs=()
-typeset -a kcHeaderArg=()
+typeset -a kubectlHeaderArg=()
 typeset -a kubectlSelectorArgs=()
 isPiped=
 if ! [ -t 1 -o "$_kubectl_toterm" ]; then
-    kcHeaderArg=(--no-headers=true)
+    kubectlHeaderArg=(--no-headers=true)
     isPiped=t
 fi
 while [ $# -ne 0 ]
@@ -32,7 +32,7 @@ do
 			kubectlGlobalArgs+=("$1" "$2"); shift; shift;;
 	--selector|-l)	kubectlSelectorArgs+=("$1" "$2"); shift; shift;;
 	--selector=*)	kubectlSelectorArgs+=("$1"); shift;;
-	--no-headers=*)	kcHeaderArg=("$1"); shift;;
+	--no-headers=*)	kubectlHeaderArg=("$1"); shift;;
 
 	--output|-o)	pvOutputArgs+=("$1" "${2?}"); shift; shift;;
 	--output=*)	pvOutputArgs+=("$1"); shift;;
@@ -72,4 +72,4 @@ if [ "$isPiped" ]; then
     filter='head -n 1 | field 1'
 fi
 
-eval 'kubectl get pv "${pvOutputArgs[@]}" "${kcHeaderArg[@]}" "${kubectlGlobalArgs[@]}" "${results[@]}"' "${filter:+|}$filter"
+eval 'kubectl get pv "${pvOutputArgs[@]}" "${kubectlHeaderArg[@]}" "${kubectlGlobalArgs[@]}" "${results[@]}"' "${filter:+|}$filter"

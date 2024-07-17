@@ -15,12 +15,12 @@ HELPTEXT
 
 typeset -a args=()
 typeset -a kubectlGlobalArgs=()
-typeset -a kcHeaderArg=()
+typeset -a kubectlHeaderArg=()
 typeset -a kubectlSelectorArgs=()
 isHeader=t
 isPiped=
 if ! [ -t 1 -o "$_kubectl_toterm" ]; then
-    kcHeaderArg=(--no-headers=true)
+    kubectlHeaderArg=(--no-headers=true)
     isHeader=
     isPiped=t
 fi
@@ -45,8 +45,8 @@ do
 				shift; shift
 				isPiped=
 				;;
-	--no-headers=true)	kcHeaderArg=("$1"); shift; isHeader=;;
-	--no-headers=false)	kcHeaderArg=("$1"); shift; isHeader=t;;
+	--no-headers=true)	kubectlHeaderArg=("$1"); shift; isHeader=;;
+	--no-headers=false)	kubectlHeaderArg=("$1"); shift; isHeader=t;;
 	--)		break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		args+=("$1"); shift;;
@@ -73,7 +73,7 @@ getg()
     local lastArg="${!#}"
 
     if [ "$lastArg" = '--' ]; then
-	kubectl-get "${@:1:$(($#-1))}" "${kcHeaderArg[@]}" "${kubectlSelectorArgs[@]}" "${kubectlGlobalArgs[@]}" --sort-by='{.metadata.creationTimestamp}' | \
+	kubectl-get "${@:1:$(($#-1))}" "${kubectlHeaderArg[@]}" "${kubectlSelectorArgs[@]}" "${kubectlGlobalArgs[@]}" --sort-by='{.metadata.creationTimestamp}' | \
 	    {
 		if [ "$isHeader" ]; then
 		    IFS=$'\n' read -r header; printf '%s\n' "$header"
@@ -104,7 +104,7 @@ b eatall
 ';
 	    }
     else
-	kubectl-get "${@:1:$(($#-1))}" "${kcHeaderArg[@]}" "${kubectlSelectorArgs[@]}" "${kubectlGlobalArgs[@]}" | \
+	kubectl-get "${@:1:$(($#-1))}" "${kubectlHeaderArg[@]}" "${kubectlSelectorArgs[@]}" "${kubectlGlobalArgs[@]}" | \
 	    {
 		if [ "$isHeader" ]; then
 		    IFS=$'\n' read -r header; printf '%s\n' "$header"
