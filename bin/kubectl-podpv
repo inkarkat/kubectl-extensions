@@ -50,6 +50,7 @@ query()
     readarray -t results < <(kubectl get "$@"; printf '\n%d\n' "$?")	# Exit status from the process substitution is lost; return the actual exit status via an appended additional line.
     [ ${results[-1]} -ne 0 ] && return ${results[-1]}
     unset 'results[-1]'; [ -z "${results[-1]}" ] && unset 'results[-1]'
+    [ "${results[*]}" = '<no value>' ] && return 1
     return 0
 }
 
