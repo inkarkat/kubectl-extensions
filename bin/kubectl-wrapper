@@ -76,5 +76,5 @@ elif type -t "$kubectlAlias" >/dev/null; then
 else
     pagerDisableCheck "$@"
 
-    eval 'command kubectl "${kubectlGlobalArgs[@]}" "$@"' "${pager:+|}" '"${pager[@]}"'
+    eval 'command kubectl "${kubectlGlobalArgs[@]}" "${kubectlSelectorArgs[@]}" "$@"' "${pager:+|}" '"${pager[@]}"'
 fi
