@@ -1,6 +1,19 @@
 #!/bin/bash
 set -o pipefail
 
+printUsage()
+{
+    cat <<HELPTEXT
+List all namespaces.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-?|-h|--help]'
+}
+
+case "$1" in
+    --help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
 getAllNamespaces()
 {
     kubectl get namespaces "$@" -o go-template --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}'
