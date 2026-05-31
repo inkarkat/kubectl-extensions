@@ -1,11 +1,13 @@
 #!/bin/bash
 set -o pipefail
 
+typeset -a filterAge=(datediff --field-separator $'\t')
+
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" "[-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]|DATE] [KUBECTL-ARGS ...] [POD-NAME ...] [-- POD-PATTERN] [-?|-h|--help]"
+    printf 'Usage: %q %s\n' "$(basename "$1")" "[$("${filterAge[@]}" --get-short-usage filter 2>/dev/null)] [KUBECTL-ARGS ...] [POD-NAME ...] [-- POD-PATTERN] [-?|-h|--help]"
 }
 printUsage()
 {
@@ -24,29 +26,34 @@ HELPDESCRIPTION
     echo
     printShortUsage "$1"
     echo
-    cat <<HELPTEXT
-    -n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt AGE[SUFFIX]|DATE
-			Only print those PODs that match the age comparison.
-SUFFIX may be 's' for seconds (the default), 'm' for minutes, 'h' for hours, 'd'
-for days, 'w' for weeks, 'mo' for months, 'y' for years, 'g' for generations.
-HELPTEXT
+    "${filterAge[@]}" --get-long-usage filter 'PODs' 2>/dev/null
 }
 
 typeset -a ageFilter=()
 typeset -a kubectlArgs=()
+typeset -a kubectlAgeFilterArgs=()
 while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
-	-n|--newer|-o|--older|-lt|-le|-eq|-ne|-ge|-gt)
-			ageFilter=(filterAge "$1" "$2"); shift; shift
-			kubectlArgs+=(--output=custom-columns='timestamp:.metadata.creationTimestamp,NAME:.metadata.name,READY:.status.containerStatuses[*].ready,STATUS:.status.phase,RESTARTS:.status.containerStatuses[].restartCount,AGE:.metadata.creationTimestamp')
-			;;
 	--)		kubectlArgs+=("$1"); shift; break;;
+	-*)		if argCount=$("${filterAge[@]}" --understand-for filter --understands "$@"); then
+			    [ ${#ageFilter[@]} -gt 0 ] || ageFilter=("${filterAge[@]}" --filter)
+			    while ((argCount-- > 0))
+			    do
+				ageFilter+=("$1"); shift
+			    done
+			    kubectlAgeFilterArgs=(--output=custom-columns='timestamp:.metadata.creationTimestamp,NAME:.metadata.name,READY:.status.containerStatuses[*].ready,STATUS:.status.phase,RESTARTS:.status.containerStatuses[].restartCount,AGE:.metadata.creationTimestamp')
+			elif [ $? -eq 2 ]; then
+			    exit 2
+			else
+			    { echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2
+			fi
+			;;
 	*)		kubectlArgs+=("$1"); shift;;
     esac
 done
-set -- "${kubectlArgs[@]}" "$@"
+set -- "${kubectlArgs[@]}" "${kubectlAgeFilterArgs[@]}" "$@"
 
 typeset -a filter=()
 if [ $# -ge 2 ] && [ "${*:(-2):1}" = -- ]; then
