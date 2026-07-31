@@ -44,7 +44,7 @@ cleanup()
 {
     rm -f "$originalFilespec" "$replacementFilespec" 2>/dev/null
 }
-[ "$DEBUG" ] || trap 'cleanup' EXIT
+! ${DEBUG:+debugenabled --invert-match --} ${DEBUG:-:} || trap 'cleanup' EXIT
 
 
 kubectl get "${kubectlGetArgs[@]}" "${kubectlOutputFormat[@]}" "$@" > "$originalFilespec" || exit $?

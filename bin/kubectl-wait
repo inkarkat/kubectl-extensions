@@ -266,7 +266,7 @@ exec 6<&0   # Save stdin.
 
 lastStateFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM")"
 : > "$lastStateFilespec"
-[ "$DEBUG" ] || trap 'rm "$lastStateFilespec" 2>/dev/null' EXIT
+! ${DEBUG:+debugenabled --invert-match --} ${DEBUG:-:} || trap 'rm "$lastStateFilespec" 2>/dev/null' EXIT
 
 isFirst=t
 while :
