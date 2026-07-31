@@ -39,10 +39,8 @@ do
 	--)		kubectlArgs+=("$1"); shift; break;;
 	-*)		if argCount=$("${filterAge[@]}" --understand-for filter --understands "$@"); then
 			    [ ${#ageFilter[@]} -gt 0 ] || ageFilter=("${filterAge[@]}" --filter)
-			    while ((argCount-- > 0))
-			    do
-				ageFilter+=("$1"); shift
-			    done
+			    ageFilter+=("${@:1:argCount}")
+			    shift $argCount
 			    kubectlAgeFilterArgs=(--output=custom-columns='timestamp:.metadata.creationTimestamp,NAME:.metadata.name,READY:.status.containerStatuses[*].ready,STATUS:.status.phase,RESTARTS:.status.containerStatuses[].restartCount,AGE:.metadata.creationTimestamp')
 			elif [ $? -eq 2 ]; then
 			    exit 2
