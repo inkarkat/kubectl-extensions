@@ -40,11 +40,7 @@ fi
 
 originalFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX.in" 2>/dev/null || echo "${TMPDIR:-/tmp}/$(basename -- "$0").$$${RANDOM}.in")"
 replacementFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX.out" 2>/dev/null || echo "${TMPDIR:-/tmp}/$(basename -- "$0").$$${RANDOM}.out")"
-cleanup()
-{
-    rm -f "$originalFilespec" "$replacementFilespec" 2>/dev/null
-}
-! ${DEBUG:+debugenabled --invert-match --} ${DEBUG:-:} || trap 'cleanup' EXIT
+trap '${DEBUG:+debugcommand --} rm -f -- "$originalFilespec" "$replacementFilespec" 2>/dev/null' EXIT
 
 
 kubectl get "${kubectlGetArgs[@]}" "${kubectlOutputFormat[@]}" "$@" > "$originalFilespec" || exit $?
