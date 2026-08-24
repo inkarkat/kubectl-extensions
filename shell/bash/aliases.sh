@@ -12,11 +12,11 @@ kca()
 {
     typeset KUBECTL_DEFAULT_CONTAINER="${KCA_DEFAULT_CONTAINER}"; export KUBECTL_DEFAULT_CONTAINER
 
-    typeset -r kcaAlias="kca-$1"
-    if type ${BASH_VERSION:+-t} "$kcaAlias" >/dev/null 2>&1; then
+    typeset -r kcaExtension="kca-$1"
+    if type ${BASH_VERSION:+-t} "$kcaExtension" >/dev/null 2>&1; then
 	shift
 	let _kubectl_use+=1
-	eval $kcaAlias '"$@"'
+	eval $kcaExtension '"$@"'
 	return
     fi
 
@@ -34,11 +34,11 @@ kci()
 {
     typeset KUBECTL_DEFAULT_CONTAINER="${KCI_DEFAULT_CONTAINER}"; export KUBECTL_DEFAULT_CONTAINER
 
-    typeset -r kciAlias="kci-$1"
-    if type ${BASH_VERSION:+-t} "$kciAlias" >/dev/null 2>&1; then
+    typeset -r kciExtension="kci-$1"
+    if type ${BASH_VERSION:+-t} "$kciExtension" >/dev/null 2>&1; then
 	shift
 	let _kubectl_use+=1
-	eval $kciAlias '"$@"'
+	eval $kciExtension '"$@"'
 	return
     fi
 

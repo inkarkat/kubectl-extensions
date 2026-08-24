@@ -4,7 +4,7 @@ shopt -qs extglob
 
 : ${KUBECTL_DEFAULT_COMMAND:=p}
 
-# Allow definition of Kubectl aliases by putting an executable "kubectl-foo"
+# Allow definition of Kubectl extensions by putting an executable "kubectl-foo"
 # somewhere in the PATH. Add paging when outputting to the terminal, as kubectl
 # output can be long (e.g. kubectl describe pod), and the command (nor my
 # extensions) doesn't do that on its own.
@@ -66,13 +66,13 @@ pagerDisableCheck()
     done
 }
 
-typeset kubectlAlias="kubectl-$1"
+typeset kubectlExtension="kubectl-$1"
 if [ $# -eq 0 -a -n "$KUBECTL_DEFAULT_COMMAND" ]; then
     eval "exec \"\${BASH_SOURCE[0]}\" \"\${kubectlGlobalArgs[@]}\" \"\${kubectlSelectorArgs[@]}\" $KUBECTL_DEFAULT_COMMAND"
-elif type -t "$kubectlAlias" >/dev/null; then
+elif type -t "$kubectlExtension" >/dev/null; then
     pagerDisableCheck "$@"
 
-    shift; eval $kubectlAlias '"${kubectlGlobalArgs[@]}" "${kubectlSelectorArgs[@]}" "$@"' "${pager:+|}" '"${pager[@]}"'
+    shift; eval $kubectlExtension '"${kubectlGlobalArgs[@]}" "${kubectlSelectorArgs[@]}" "$@"' "${pager:+|}" '"${pager[@]}"'
 else
     pagerDisableCheck "$@"
 
