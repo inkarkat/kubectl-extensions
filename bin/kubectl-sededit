@@ -44,8 +44,7 @@ fi
 
 
 TMPFILE="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM")"
-trap '${DEBUG:+debugcommand --} rm -f -- "$TMPFILE" 2>/dev/null' EXIT
-
+trap '${DEBUG:+debugcommand --module cleanup --} rm -f -- "$TMPFILE" 2>/dev/null' EXIT
 
 kubectl get "${kubectlGetArgs[@]}" "${kubectlOutputFormat[@]}" "$@" > "$TMPFILE" || exit $?
 sed -i "${sedArgs[@]}" "$TMPFILE" || exit $?
