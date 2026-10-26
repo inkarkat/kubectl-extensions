@@ -1,6 +1,8 @@
 #!/bin/bash
 set +o pipefail	# Only parse() determines success.
 
+${DEBUG:+eval $(debugtrace -o $- -- "$@")}
+
 : ${KUBECTL_WAIT_MAX_UPTIME_IN_SECONDS_FOR_NEWNESS=60}
 : ${KUBECTL_WAIT_INTERVAL=1s}
 
@@ -267,6 +269,7 @@ exec 6<&0   # Save stdin.
 lastStateFilespec="$(mktemp --tmpdir "$(basename -- "$0")-XXXXXX" 2>/dev/null || echo "${TMPDIR:-/tmp}/$(basename -- "$0").$$$RANDOM")"
 : > "$lastStateFilespec"
 trap '${DEBUG:+debugcommand --module cleanup --} rm -f -- "$lastStateFilespec" 2>/dev/null' EXIT
+${DEBUG:+eval $(debugtrace --point main -o $- --)}
 
 isFirst=t
 while :
